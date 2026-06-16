@@ -47,26 +47,28 @@ if haitun_lives_text and '"lives": [' in final_json_text:
     final_json_text = final_json_text.replace('"lives": [', f'"lives": [\n    {haitun_lives_text},\n    ', 1)
 
 # ====================================================================
-# 3. 🛡️ 【硬核净网拦截】：精准识别并剔除所有带有 🔞 的敏感站点
+# 3. 🛡️ 【终极强力净网】：无视换行，全量精准剔除所有带有 🔞 的站点
 # ====================================================================
 if '"sites": [' in final_json_text:
-    # 提取出 sites 数组内部的全部文本
+    # 1. 把整个 JSON 按照 "sites": [ 切开
     parts = final_json_text.split('"sites": [', 1)
     before_sites = parts[0]
+    
+    # 2. 再把后半部分按照 sites 结束的 ] 切开
     after_sites = parts[1].split(']', 1)
     sites_inner_text = after_sites[0]
     rest_of_json = after_sites[1]
 
-    # 利用正则找出每一个 {...} 结构的站点对象
-    site_blocks = re.findall(r'\{[^{}]*\}', sites_inner_text)
+    # 3. ⭐ 终极修复：加入 re.DOTALL 参数，让点号 . 能够匹配换行符，强行抓取所有跨行大括号
+    site_blocks = re.findall(r'\{[^{}]*\}', sites_inner_text, re.DOTALL)
     clean_blocks = []
 
     for block in site_blocks:
-        # 只要这个站点的文本里不包含 🔞 标志，就保留下来
+        # 只要里面不包含 🔞 标志，就保留
         if "🔞" not in block:
             clean_blocks.append(block)
 
-    # 用逗号和换行重新把干净的站点拼接回去
+    # 4. 重新优雅拼接
     new_sites_inner = ",\n    ".join(clean_blocks)
     final_json_text = f'{before_sites}"sites": [\n    {new_sites_inner}\n  ]{rest_of_json}'
 
@@ -105,4 +107,4 @@ final_json_text = re.sub(r',\s*\]', '\n  ]', final_json_text)
 with open(output_path, 'w', encoding='utf-8') as f:
     f.write(final_json_text)
 
-print("🎉 【纯净绿色版完成】成功过滤 🔞 线路，并输出为 老杨TV无18.json！")
+print("🎉 【纯净绿色版完成】无视换行完美过滤 🔞 线路，并输出为 老杨TV无18.json！")
