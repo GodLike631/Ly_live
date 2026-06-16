@@ -3,7 +3,7 @@ import re
 
 cnb_path = 'datas/cnb.json'
 haitun_path = 'datas/haitun.json'
-output_path = 'datas/老杨TV无18.json'  # 彻底锁定新后缀文件名
+output_path = 'datas/老杨TV无18.json'  # 锁定新文件名
 
 def read_file_text(path):
     if not os.path.exists(path):
@@ -47,30 +47,42 @@ if haitun_lives_text and '"lives": [' in final_json_text:
     final_json_text = final_json_text.replace('"lives": [', f'"lives": [\n    {haitun_lives_text},\n    ', 1)
 
 # ====================================================================
-# 3. 🛡️ 【终极强力净网】：无视换行，全量精准剔除所有带有 🔞 的站点
+# 3. 🛡️ 【按行靶向拦截法】：彻底解决大括号嵌套导致的过滤失效
 # ====================================================================
 if '"sites": [' in final_json_text:
-    # 1. 把整个 JSON 按照 "sites": [ 切开
     parts = final_json_text.split('"sites": [', 1)
     before_sites = parts[0]
-    
-    # 2. 再把后半部分按照 sites 结束的 ] 切开
     after_sites = parts[1].split(']', 1)
     sites_inner_text = after_sites[0]
     rest_of_json = after_sites[1]
 
-    # 3. ⭐ 终极修复：加入 re.DOTALL 参数，让点号 . 能够匹配换行符，强行抓取所有跨行大括号
-    site_blocks = re.findall(r'\{[^{}]*\}', sites_inner_text, re.DOTALL)
-    clean_blocks = []
+    # 将所有站点文本按行切开，一行行处理
+    raw_lines = sites_inner_text.splitlines()
+    clean_lines = []
+    
+    # 借助一个标记数组，帮我们精准定位要删除的站点范围
+    skip_indices = set()
+    
+    for i, line in enumerate(raw_lines):
+        if "🔞" in line:
+            # 向上和向下摸索，把带有 🔞 的这整个大括号对象（通常上下各几行）的行索引全抓出来
+            start = i
+            while start >= 0 and "{" not in raw_lines[start]:
+                start -= 1
+            end = i
+            while end < len(raw_lines) and "}" not in raw_lines[end]:
+                end += 1
+            # 把这几行的行号全部标记为“要删除”
+            for r in range(start, min(end + 1, len(raw_lines))):
+                skip_indices.add(r)
 
-    for block in site_blocks:
-        # 只要里面不包含 🔞 标志，就保留
-        if "🔞" not in block:
-            clean_blocks.append(block)
+    # 重新组装，只要不在删除名单里的行，全部保留
+    for i, line in enumerate(raw_lines):
+        if i not in skip_indices:
+            clean_lines.append(line)
 
-    # 4. 重新优雅拼接
-    new_sites_inner = ",\n    ".join(clean_blocks)
-    final_json_text = f'{before_sites}"sites": [\n    {new_sites_inner}\n  ]{rest_of_json}'
+    new_sites_inner = "\n".join(clean_lines)
+    final_json_text = f'{before_sites}"sites": [\n{new_sites_inner}\n  ]{rest_of_json}'
 
 # ====================================================================
 # 4. 靶向拦截手术：揪出这两个瘫痪的 4K 线路，强行切断 CNB 依赖，锁死海豚核心
@@ -103,8 +115,7 @@ final_json_text = final_json_text.replace('"warningText": "欢迎使用鱼儿自
 final_json_text = re.sub(r'\[\s*,', '[', final_json_text)
 final_json_text = re.sub(r',\s*\]', '\n  ]', final_json_text)
 
-# 写入本地文件存盘
 with open(output_path, 'w', encoding='utf-8') as f:
     f.write(final_json_text)
 
-print("🎉 【纯净绿色版完成】无视换行完美过滤 🔞 线路，并输出为 老杨TV无18.json！")
+print("🎉 【纯净绿色版完成】无视任何大括号嵌套，完美过滤 🔞 线路！")
