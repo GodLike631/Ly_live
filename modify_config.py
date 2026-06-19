@@ -13,7 +13,7 @@ lock_file_path = 'datas/控制开关.txt'
 tracker_path = 'datas/最新接口文件名.txt'
 
 # ====================================================================
-# ⏰ 【方案 A 定时自动脱壳机制：老杨TV无18 + 严格 3 位随机字符定制版】
+# ⏰ 【安全阀门升级：绿色版方案 A 确保 1 号早晚双跑只洗一次牌】
 # ====================================================================
 today = datetime.datetime.now()
 is_reset_day = (today.day == 1)  # 🌟 默认每月 1 号全自动定时洗牌
@@ -29,12 +29,18 @@ if os.path.exists(lock_file_path):
 if len(current_token) != 3:
     current_token = ""
 
-# 2. 如果今天是一号，或者暗号为空/不合规，立刻启动 3 位随机数抽签
-if is_reset_day or not current_token:
-    current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=3))
-    with open(lock_file_path, 'w', encoding='utf-8') as f:
-        f.write(current_token)
-    print(f"⏰ 【密锁自动生成】当前绿色版已锁定 3 位新密锁: {current_token}")
+# 🌟【安全闭环阀门】：
+# 如果今天是 1 号，但是控制开关里的密锁已经是严格的 3 位字符了，
+# 说明今天早上的 Action 已经完成过洗牌抽签了！晚上 20 点那次必须沿用，绝不能二次洗牌！
+if is_reset_day and len(current_token) == 3:
+    print(f"🔒 【安全阀拦截】今日 1 号已在早晨完成大洗牌，晚上保持原暗号不再重复抽签: {current_token}")
+else:
+    # 2. 只有满足【是 1 号且开关是空的】或者【平时开关被老杨手动清空】时，才允许重新抽签
+    if is_reset_day or not current_token:
+        current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=3))
+        with open(lock_file_path, 'w', encoding='utf-8') as f:
+            f.write(current_token)
+        print(f"⏰ 【密锁自动生成】已生成绿色版严格 3 位新密锁: {current_token}")
 
 # 👑 严格按照老杨的要求：固定的品牌前缀 + 3位乱码尾缀
 output_filename = f"老杨TV无18{current_token}.json"
