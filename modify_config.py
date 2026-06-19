@@ -1,9 +1,62 @@
 import os
 import re
+import random
+import string
+import glob
+import datetime
 
 cnb_path = 'datas/cnb.json'
 haitun_path = 'datas/haitun.json'
-output_path = 'datas/老杨TV无18.json'  # 🔒 锁定新文件名
+
+# 控制开关和追踪器的文件路径
+lock_file_path = 'datas/控制开关.txt'
+tracker_path = 'datas/最新接口文件名.txt'
+
+# ====================================================================
+# ⏰ 【方案 A 定时自动脱壳机制：老杨TV无18 + 严格 3 位随机字符定制版】
+# ====================================================================
+today = datetime.datetime.now()
+is_reset_day = (today.day == 1)  # 🌟 默认每月 1 号全自动定时洗牌
+
+current_token = ""
+
+# 1. 优先读取现有的控制开关
+if os.path.exists(lock_file_path):
+    with open(lock_file_path, 'r', encoding='utf-8') as f:
+        current_token = f.read().strip()
+
+# 🌟【核心纠偏】：如果发现旧暗号长度不是严格的 3 位，强行作废重抽
+if len(current_token) != 3:
+    current_token = ""
+
+# 2. 如果今天是一号，或者暗号为空/不合规，立刻启动 3 位随机数抽签
+if is_reset_day or not current_token:
+    current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=3))
+    with open(lock_file_path, 'w', encoding='utf-8') as f:
+        f.write(current_token)
+    print(f"⏰ 【密锁自动生成】当前绿色版已锁定 3 位新密锁: {current_token}")
+
+# 👑 严格按照老杨的要求：固定的品牌前缀 + 3位乱码尾缀
+output_filename = f"老杨TV无18{current_token}.json"
+output_path = f"datas/{output_filename}"
+
+# ====================================================================
+# 🛡️ 【斩草除根：旧线及历史垃圾自动物理清除雷达】
+# ====================================================================
+old_configs = glob.glob('datas/老杨TV无18*.json')
+for old_file in old_configs:
+    if os.path.basename(old_file) != output_filename:
+        try:
+            os.remove(old_file)
+            print(f"🗑️ 【物理强擦】已成功抹除绿色版过期旧线: {old_file}")
+        except Exception as e:
+            pass
+
+# 顺手全面清理历史可能遗留的 config_ 开头或 local_config 垃圾
+for garbage in ['datas/local_config.json', *glob.glob('datas/config_*.json')]:
+    try: os.remove(garbage)
+    except: pass
+
 
 def read_file_text(path):
     if not os.path.exists(path):
@@ -112,13 +165,11 @@ final_json_text = final_json_text.replace('./py/', 'https://cnb.cool/fish2018/xs
 # ====================================================================
 # 6. 定制老杨自用全量缝合专线 brand 头部
 # ====================================================================
-# 1. 精准锁定头部唯一图片，替换为您的专属蝴蝶 Logo 链接
 final_json_text = final_json_text.replace(
     '"logo": "http://127.0.0.1:9978/file/TVBox/logo.png"', 
     '"logo": "https://img.naixiai.cn/2026/06/18/IMG_6638.jpeg"'
 )
 
-# 2. 锁定 JSON 开头首行，精准插入专属长篇致谢声明
 if '"warningText":' not in final_json_text:
     thanks_warning = (
         '👑 特别致谢与版权声明\\n'
@@ -140,17 +191,14 @@ if '"warningText":' not in final_json_text:
 # ====================================================================
 # 7. 全方位名称大清洗与品牌脱敏手术
 # ====================================================================
-# 1. 批量拔除各种旧品牌的残留和无关话术
 final_json_text = final_json_text.replace('🐬', '')
 final_json_text = final_json_text.replace('海豚影视', '')
 final_json_text = final_json_text.replace('海豚', '')
 final_json_text = final_json_text.replace('完全免费，如有收费的都是骗子', '')
 final_json_text = final_json_text.replace('交流群 TG：@hshsjk9', '')
 
-# 2. 精准格式化与全线路 🦋 前缀注入
 def clean_and_add_butterfly(match):
     name_val = match.group(1)
-    
     tg_suffix = ""
     if "｜Tg：@huliys9" in name_val:
         name_val = name_val.replace("｜Tg：@huliys9", "")
@@ -164,14 +212,13 @@ def clean_and_add_butterfly(match):
 
 final_json_text = re.sub(r'"name"\s*:\s*"([^"]+)"', clean_and_add_butterfly, final_json_text)
 
-# 3. 🎯【精准拦截替换】单独将爱奇艺线路名称升级为长篇免责声明版本
 final_json_text = final_json_text.replace(
     '"name": "🦋爱奇艺｜Tg：@huliys9"',
     '"name": "🦋爱奇艺｜此接口非原创，合并自海豚佬和鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"'
 )
 
 # ====================================================================
-# 8. 安全、高效地消除尾部及多余逗号瑕疵（消除因删减导致的 JSON 语法病灶）
+# 8. 安全、高效地消除尾部及多余逗号瑕疵
 # ====================================================================
 final_json_text = final_json_text.replace('[\n    ,', '[')
 final_json_text = final_json_text.replace('[\n,', '[')
@@ -180,8 +227,12 @@ final_json_text = final_json_text.replace(',\n  ]', '\n  ]')
 final_json_text = re.sub(r'\[\s*,', '[', final_json_text)
 final_json_text = re.sub(r',\s*\]', '\n  ]', final_json_text)
 
-# 写入本地文件存盘
+# 写入带有品牌特征的乱码绿色版文件
 with open(output_path, 'w', encoding='utf-8') as f:
     f.write(final_json_text)
 
-print("🎉 【老杨TV无18绿色纯净版】已构建完毕，成功输出为 老杨TV无18.json！")
+# 登记在追踪器里
+with open(tracker_path, 'w', encoding='utf-8') as f:
+    f.write(output_filename)
+
+print(f"🎉 【老杨TV无18纯净版】同步成功！当前出库配置名: {output_path}")
