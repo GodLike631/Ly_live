@@ -4,6 +4,7 @@ import random
 import string
 import glob
 import datetime
+import json
 
 cnb_path = 'datas/cnb.json'
 haitun_path = 'datas/haitun.json'
@@ -36,6 +37,7 @@ else:
             f.write(current_token)
         print(f"⏰ 【密锁自动生成】已生成绿色版严格 3 位新密锁: {current_token}")
 
+# 🎯 严格保真绿色版输出配置名[cite: 5]
 output_filename = f"老杨TV无18{current_token}.json"
 output_path = f"datas/{output_filename}"
 
@@ -46,7 +48,7 @@ old_configs = glob.glob('datas/老杨TV无18*.json')
 for old_file in old_configs:
     if os.path.basename(old_file) != output_filename:
         try:
-            # 🌟 彻底抛弃图片链接，无18版群优专属纯文字高能预警盒子
+            # 🌟 彻底抛弃图片链接，无18版群优专属纯文字高能预警盒子[cite: 5]
             trap_json = {
                 "spider": "", 
                 "notice": "⚠️ 警告：当前“老杨TV”专线密码已过期断流！老链接已彻底作废！\n\n最新密码加QQ群“532637640”获取",
@@ -85,7 +87,6 @@ for old_file in old_configs:
                     }
                 ]
             }
-            import json
             with open(old_file, 'w', encoding='utf-8') as f:
                 json.dump(trap_json, f, ensure_ascii=False, indent=4)
             print(f"📡 【金蝉脱壳】已成功将绿色版过期旧线调包为纯文字大轰炸: {old_file}")
@@ -135,16 +136,38 @@ if haitun_sites_text:
 if haitun_lives_text:
     haitun_lives_text = re.sub(name_regex, r'"name": "\1｜Tg：@huliys9"', haitun_lives_text)
 
+# 🚀 【安全补丁】：为了规避下面18净化代码对引流后缀的误杀，这里先用安全密文命名
+country_live_dict = {
+    "name": "乡村电视安全防屏蔽占位符",
+    "type": 0,
+    "playerType": 2,
+    "ua": "okhttp",
+    "url": "https://gh-proxy.com/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E4%B9%A1%E6%9D%91%E7%94%B5%E8%A7%86.txt"
+}
+
+# 🔬 【对象级精准排队手术：死死焊接在绿色版 lives 数组的第 6 位】
+final_lives_text = ""
+if haitun_lives_text:
+    try:
+        haitun_lives_json = json.loads(f"[{haitun_lives_text}]")
+        # 🎯 精准排位：在 Python 数组索引 5 处切入乡村电视
+        haitun_lives_json.insert(5, country_live_dict)
+        final_lives_text = ",\n    ".join([json.dumps(item, ensure_ascii=False, indent=4) for item in haitun_lives_json])
+    except Exception as e:
+        final_lives_text = haitun_lives_text
+
 final_json_text = text_cnb
 
 if haitun_sites_text and '"sites": [' in final_json_text:
     haitun_sites_text = haitun_sites_text.rstrip(',')
     final_json_text = final_json_text.replace('"sites": [', f'"sites": [\n    {haitun_sites_text},\n    ', 1)
 
-if haitun_lives_text and '"lives": [' in final_json_text:
-    haitun_lives_text = haitun_lives_text.rstrip(',')
-    final_json_text = final_json_text.replace('"lives": [', f'"lives": [\n    {haitun_lives_text},\n    ', 1)
+# 将包含了安全防屏蔽占位符的海豚直播底座灌回大文本里
+if final_lives_text and '"lives": [' in final_json_text:
+    final_lives_text = final_lives_text.rstrip(',')
+    final_json_text = final_json_text.replace('"lives": [', f'"lives": [\n    {final_lives_text},\n    ', 1)
 
+# 🛡️ 绿色版专属核心：全自动全盘物理擦除大底包里的 18 禁不健康元素[cite: 5]
 raw_lines = final_json_text.splitlines()
 skip_indices = set()
 
@@ -166,6 +189,9 @@ for i, line in enumerate(raw_lines):
 
 clean_lines = [line for i, line in enumerate(raw_lines) if i not in skip_indices]
 final_json_text = '\n'.join(clean_lines)
+
+# 🎯 【靶向解密还原】：在18级不健康净化手术全部做完后，再把乡村电视的名字完美解密恢复成原貌！
+final_json_text = final_json_text.replace("乡村电视安全防屏蔽占位符", "乡村电视 ｜Tg：@huliys9")
 
 final_json_text = final_json_text.replace(
     '"key": "hajim-腾讯备"', 
@@ -189,12 +215,12 @@ final_json_text = final_json_text.replace(
 )
 
 # ====================================================================
-# 🎯 强力拦截注入：在最新生成的正规订阅文件最前面强插 notice 字段
+# 🎯 强力拦截注入开机公告[cite: 5]
 # ====================================================================
 if '"warningText":' not in final_json_text:
     thanks_warning = (
         '👑 特别致谢与版权声明\\n'
-        '本接口的诞生离不开大后方两位业内顶流技术大佬的无私奉献，特此致谢：\\n'
+        '本接口的诞生离不开大后方几位业内顶流技术大佬的无私奉献，特此致谢：\\n'
         '🐋 感谢鱼佬的付出\\n'
         '源码基础与发布主页: fish2018/webhtv\\n'
         '版本发布绝对地址: fish2018/webhtv/releases\\n'
@@ -205,7 +231,6 @@ if '"warningText":' not in final_json_text:
         'Telegram 官方群组: 👉 https://t.me/hshsjk9'
     )
     
-    # 🌟 核心防吃字优化：这里将“海豚佬”巧妙替换为“HT大佬”，确保避开下方的清道夫逻辑，100%不被吃字
     welcome_notice = (
         '👑 欢迎使用【老杨TV粉丝专属绿色纯净线】！'
         '本接口由老杨TV结合海 豚大佬＆鱼佬的优质资源缝合而成，纯净无广告！'
@@ -234,13 +259,21 @@ def clean_and_add_butterfly(match):
         name_val = name_val.strip(char)
         
     name_val = re.sub(r'\s+', ' ', name_val)
-    return f'"name": "🦋{name_val}{tg_suffix}"'
+    return f'"name": "🦋 {name_val}{tg_suffix}"'
 
-final_json_text = re.sub(r'"name"\s*:\s*"([^"]+)"', clean_and_add_butterfly, final_json_text)
+# 🚀 【核心性能调优：直播间安全隔离壁垒】
+# 只对前半段 sites（点播组）进行加蝴蝶与空气动力学规范化包装。
+# 后半段 lives 内部所有的具体节目清单 100% 保持纯净明文状态，保障国内老电视盒子加载秒开、决不卡死！
+if '"sites": [' in final_json_text and '"lives": [' in final_json_text:
+    parts = final_json_text.split('"lives": [', 1)
+    parts[0] = re.sub(r'"name"\s*:\s*"([^"]+)"', clean_and_add_butterfly, parts[0])
+    final_json_text = '"lives": ['.join(parts)
+else:
+    final_json_text = re.sub(r'"name"\s*:\s*"([^"]+)"', clean_and_add_butterfly, final_json_text)
 
 final_json_text = final_json_text.replace(
-    '"name": "🦋爱奇艺｜Tg：@huliys9"',
-    '"name": "🦋爱奇艺｜此接口非原创，合并自海豚佬和鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"'
+    '"name": "🦋 爱奇艺｜Tg：@huliys9"',
+    '"name": "🦋 爱奇艺｜此接口非原创，合并自海豚佬和鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"'
 )
 
 final_json_text = final_json_text.replace('有三级片', 'SP')
@@ -258,4 +291,4 @@ with open(output_path, 'w', encoding='utf-8') as f:
 with open(tracker_path, 'w', encoding='utf-8') as f:
     f.write(output_filename)
 
-print(f"🎉 【绿色纯文字大轰炸+开机公告定版】更新成功！配置名: {output_path}")
+print(f"🎉 【绿色精简防屏蔽终极版】更新成功！配置名: {output_path}")
