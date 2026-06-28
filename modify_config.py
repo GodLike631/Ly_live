@@ -63,7 +63,7 @@ for old_file in old_configs:
                 "notice": "⚠️ 警告：当前“老杨TV”绿色专线密码已过期断流！老链接已彻底作废！\n\n最新密码或纯净版链接加QQ群“532637640”获取",
                 "warningText": "👑 特别提示：加QQ群“532637640”获取",
                 "sites": [
-                    {"key": "老杨绿色纯文字提示", "name": "🚨 请更换为最新【老杨TV纯净版】链接", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0},
+                    {"key": "老杨绿色纯文字提示", "name": "➡️ 请前往QQ群“532637640”获取最新密码🚨 请前往QQ群“532637640”获取最新密码", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0},
                     {"key": "老杨绿色纯文字提示2", "name": "🚨 不要看这里了 ➡️ 请前往QQ群“532637640”获取最新动态", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0}
                 ],
                 "lives": [
