@@ -2,7 +2,7 @@ name: 自动双源无损强行合并-备用线
 
 on:
   schedule:
-    # 🌟 准时在每天北京时间早上 8 点和晚上 8 点自动触发线路合流清洗
+    # 🎯 避开整点阻塞，换算北京时间为早上 8:00 和晚上 20:00 准时合流清洗
     - cron: '0 0,12 * * *'
   workflow_dispatch: 
 
@@ -19,32 +19,32 @@ jobs:
       with:
         python-version: '3.10'
 
-    # 1. 下载两个源
+    # 1. 下载两个标准公共大底包
     - name: Fetch target files
       run: |
         mkdir -p datas
         curl -L "https://cnb.cool/fish2018/xs/-/git/raw/main/api.json" -o datas/cnb.json
         curl -L "https://raw.githubusercontent.com/FGBLH/GHK/refs/heads/main/海豚666.json" -o datas/haitun.json
 
-    # 2. 强行文本拼接合并
+    # 2. 执行安全对象级绿色过滤与自适应改名脚本
     - name: Text Merge JSON
       run: |
         python modify_config.py
 
-    # 3. 核心修正：大写 name 纠偏，强行同步物理删除，实现彻底断流
+    # 3. 核心修正：精准同步控制开关，彻底杜绝 1 号洗牌死循环
     - name: Commit and Push changes
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
-        # 🌟 核心修改 1：使用 -A 强行记录所有变化（包括脚本帮你物理擦除的过期旧绿色版接口）
-        git add -A
+        # 🌟 强行精准同步控制开关状态与纯净版生成的配置系列
+        git add datas/控制开关.txt
+        git add datas/最新接口文件名.txt
+        git add datas/老杨TV纯净版*.json
         
-        # 🌟 核心修改 2：更灵敏的改动探测，确保 1 号换名或者手动拉闸时 100% 成功推送
         if git diff-index --quiet HEAD; then
           echo "文件没有变化，无需更新。"
         else
-          # 🌟 核心修改 3：日志注释精准对应绿色版名称
-          git commit -m "双源文本级硬核合并 (老杨TV无18.json): $(date +'%Y-%m-%d %H:%M:%S')"
+          git commit -m "双源自适应硬核净化合并 (老杨TV纯净版系列): $(date +'%Y-%m-%d %H:%M:%S')"
           git push
         fi
