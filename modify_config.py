@@ -26,7 +26,7 @@ if os.path.exists(lock_file_path):
     with open(lock_file_path, 'r', encoding='utf-8') as f:
         current_token = f.read().strip()
 
-# 🎯 【核心新增】：如果控制开关被你手动清空了（或全是空格）
+# 🎯 如果控制开关被手动清空了（或全是空格）
 if not current_token:
     current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=3))
     with open(lock_file_path, 'w', encoding='utf-8') as f:
@@ -63,11 +63,11 @@ for old_file in old_configs:
                 "notice": "⚠️ 警告：当前“老杨TV”绿色专线密码已过期断流！老链接已彻底作废！\n\n最新密码或纯净版链接加QQ群“532637640”获取",
                 "warningText": "👑 特别提示：加QQ群“532637640”获取",
                 "sites": [
-                    {"key": "老杨绿色纯文字提示", "name": "➡️ 请前往QQ群“532637640”获取最新密码🚨 请前往QQ群“532637640”获取最新密码", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0},
-                    {"key": "老杨绿色纯文字提示2", "name": "🚨 不要看这里了 ➡️ 请前往QQ群“532637640”获取最新动态", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0}
+                    {"key": "老杨绿色纯文字提示", "name": "➡️ 请前往QQ群“532637640”获取最新密码🚨 ➡️ 请前往QQ群“532637640”获取最新密码", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0},
+                    {"key": "老杨绿色纯文字提示2", "name": "🚨 不要看这里了 ➡️ 请前往QQ群“532637640”获取最新密码", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0}
                 ],
                 "lives": [
-                    {"group": "🚨 接口过期断流 ｜ 提示", "channels": [{"name": "👉 当前线路已过期 ➡️ 请使用纯净版新链接", "urls": ["http://127.0.0.1"]}]}
+                    {"group": "🚨 接口过期断流 ｜ 提示", "channels": [{"name": "👉 当前线路已过期 ➡️  请前往QQ群“532637640”获取最新密码", "urls": ["http://127.0.0.1"]}]}
                 ]
             }
             with open(old_file, 'w', encoding='utf-8') as f:
@@ -121,9 +121,14 @@ if len(haitun_lives) >= 5:
 else:
     haitun_lives.append(country_live_dict)
 
-# 数组大合并
-json_cnb["sites"] = haitun_sites
-json_cnb["lives"] = haitun_lives
+# ====================================================================
+# 🚀 数组大合并：【完美调整顺序】海豚排上面 ➡️ 最后接 cnb
+# ====================================================================
+cnb_sites = json_cnb.get("sites", [])
+cnb_lives = json_cnb.get("lives", [])
+
+json_cnb["sites"] = haitun_sites + cnb_sites
+json_cnb["lives"] = haitun_lives + cnb_lives
 
 # 转换为文本进行清洗与特调
 final_json_text = json.dumps(json_cnb, ensure_ascii=False, indent=4)
@@ -211,4 +216,4 @@ try:
     print(f"🎉 【绿色精简防屏蔽纯净版】更新成功！配置名: {output_path}")
 
 except Exception as e:
-    print(f"❌ 严重错误：最后的本地过滤渲染失败，原因: {e}")
+    print(f"❌ 严重错误：最后的本地过滤渲染失败，reason: {e}")
