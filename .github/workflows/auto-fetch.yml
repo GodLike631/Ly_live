@@ -6,6 +6,9 @@ on:
     - cron: '0 0,12 * * *'
   workflow_dispatch: 
 
+# 🌟 显式强制赋予工作流最高写权限，彻底杜绝 128 推送报错
+permissions: write-all
+
 jobs:
   fetch-and-sync:
     runs-on: ubuntu-latest
@@ -31,16 +34,16 @@ jobs:
       run: |
         python modify_config.py
 
-    # 3. 核心修正：精准同步控制开关，彻底杜绝 1 号洗牌死循环
+    # 3. 核心修正：精准同步控制开关
     - name: Commit and Push changes
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
-        # 🌟 强行精准同步控制开关状态与纯净版生成的配置系列
-        git add datas/控制开关.txt
-        git add datas/最新接口文件名.txt
-        git add datas/老杨TV纯净版*.json
+        # 🌟 使用优化过的 add 并完美适配原有的老杨TV纯净版文件名命名
+        git add datas/控制开关.txt || true
+        git add datas/最新接口文件名.txt || true
+        git add datas/老杨TV纯净版*.json || true
         
         if git diff-index --quiet HEAD; then
           echo "文件没有变化，无需更新。"
