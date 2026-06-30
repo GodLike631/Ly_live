@@ -168,17 +168,17 @@ try:
     if "warningText" in final_obj: ordered_obj["warningText"] = final_obj.pop("warningText")
     ordered_obj.update(final_obj)
     
-    # 🛡️ 绿色版专属核心：全自动全盘对象级物理擦除 18 禁不健康元素
+    # 🛡️ 绿色版专属核心：全自动全盘对象级物理擦除 18 禁不健康元素（新增“有三级片”过滤逻辑）
     clean_sites = []
     for site in ordered_obj.get("sites", []):
         site_str = json.dumps(site, ensure_ascii=False)
-        if "🔞" not in site_str and "18+" not in site_str:
+        if "🔞" not in site_str and "18+" not in site_str and "有三级片" not in site_str:
             clean_sites.append(site)
             
     clean_lives = []
     for live in ordered_obj.get("lives", []):
         live_str = json.dumps(live, ensure_ascii=False)
-        if "🔞" not in live_str and "18+" not in live_str:
+        if "🔞" not in live_str and "18+" not in live_str and "有三级片" not in live_str:
             clean_lives.append(live)
             
     ordered_obj["sites"] = clean_sites
@@ -205,7 +205,6 @@ try:
 
     # 写出最终文件文本并做最后微调
     output_json_text = json.dumps(ordered_obj, ensure_ascii=False, indent=4)
-    output_json_text = output_json_text.replace('有三级片', 'SP')
 
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(output_json_text)
