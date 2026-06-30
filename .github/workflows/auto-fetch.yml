@@ -40,10 +40,11 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
-        # 🌟 使用优化过的 add 并完美适配原有的老杨TV纯净版文件名命名
-        git add datas/控制开关.txt || true
-        git add datas/最新接口文件名.txt || true
-        git add datas/老杨TV纯净版*.json || true
+        # 🌟【核心修复】禁止 Git 对中文路径进行转义，彻底解决乱码匹配不到文件的问题
+        git config --global core.quotepath false
+        
+        # 🌟 直接把整个 datas 文件夹全部 add 进来，不管中文名怎么变都能 100% 抓到
+        git add datas/
         
         if git diff-index --quiet HEAD; then
           echo "文件没有变化，无需更新。"
