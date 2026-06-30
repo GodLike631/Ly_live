@@ -34,7 +34,7 @@ jobs:
       run: |
         python modify_config.py
 
-    # 3. 核心修正：精准同步控制开关
+    # 3. 核心修正：精准同步控制开关并提交
     - name: Commit and Push changes
       run: |
         git config --global user.name "github-actions[bot]"
