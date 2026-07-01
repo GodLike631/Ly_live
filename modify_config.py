@@ -184,7 +184,7 @@ try:
     if "warningText" in final_obj: ordered_obj["warningText"] = final_obj.pop("warningText")
     ordered_obj.update(final_obj)
     
-    # 🛡️ 绿色版专属核心：全自动全盘对象级物理擦除 18 禁不健康元素（新增“有三级片”过滤逻辑）
+    # 🛡️ 绿色版专属核心：全自动全盘对象级物理擦除 18 禁不健康元素
     clean_sites = []
     for site in ordered_obj.get("sites", []):
         site_str = json.dumps(site, ensure_ascii=False)
@@ -205,27 +205,89 @@ try:
         if live.get("name") == "乡村电视安全防屏蔽占位符":
             live["name"] = "乡村电视 ｜Tg：@huliys9"
 
-    # 🦋 加蝴蝶逻辑 (做报错隔离保护)
+    # ====================================================================
+    # 🌟【全新注入：深度大屏体验优化区】
+    # ====================================================================
     try:
+        # --- 1. 注入国内低延迟 AliDNS 到 doh 首位 ---
+        if "doh" in ordered_obj and isinstance(ordered_obj["doh"], list):
+            ali_doh = {
+                "name": "AliDNS",
+                "url": "https://dns.alidns.com/dns-query",
+                "ips": ["223.5.5.5", "223.6.6.6"]
+            }
+            if not any(d.get("name") == "AliDNS" for d in ordered_obj["doh"]):
+                ordered_obj["doh"].insert(0, ali_doh)
+
+        # --- 2. 物理剔除直播 lives 列表末尾的无用空对象 {} 规避电视闪退 ---
+        if "lives" in ordered_obj and isinstance(ordered_obj["lives"], list):
+            ordered_obj["lives"] = [live for live in ordered_obj["lives"] if live]
+
+        # --- 3. 站点名字精准裁切尾巴 + 智能排版自动分类 ---
+        tg_tail_count = 0
+        
         for site in ordered_obj.get("sites", []):
             if "name" in site:
                 name_val = site["name"]
+                
+                # 去除杂质字符（原脚本基础美化）
                 for char in ['丨', '┃', ' ']:
                     name_val = name_val.strip(char)
                 name_val = re.sub(r'\s+', ' ', name_val)
-                if not name_val.startswith("🦋"):
-                    site["name"] = f"🦋 {name_val}"
+                
+                # 【保留前5个TG后缀】核心逻辑
+                if "｜Tg：@huliys9" in name_val:
+                    tg_tail_count += 1
+                    if tg_tail_count > 5:
+                        name_val = name_val.replace("｜Tg：@huliys9", "").strip()
+                elif "｜Tg:@huliys9" in name_val:
+                    tg_tail_count += 1
+                    if tg_tail_count > 5:
+                        name_val = name_val.replace("｜Tg:@huliys9", "").strip()
 
+                # 前缀统一强制补全蝴蝶图标
+                if not name_val.startswith("🦋"):
+                    name_val = f"🦋 {name_val}"
+                
+                site["name"] = name_val
+
+                # 【智能分类与搜索过滤】由于是纯净绿色版，剔除了成人分类
+                s_key = site.get("key", "")
+                s_genre = site.get("genre", "")
+                
+                if s_genre == "shortdrama" or "短剧" in name_val or "dj" in s_key.lower():
+                    site["category"] = "短剧"
+                elif "少儿" in name_val or "课堂" in name_val or "教学" in name_val:
+                    site["category"] = "少儿"
+                    site["searchable"] = 0  # 音乐、教育类不污染主页搜索
+                    site["quickSearch"] = 0
+                elif "音乐" in name_val or "网易云" in name_val or "听书" in name_val or "唱会" in name_val or "FM" in name_val:
+                    site["category"] = "音乐"
+                    site["searchable"] = 0
+                    site["quickSearch"] = 0
+                elif "动漫" in name_val or "新番" in name_val or "Anime" in s_key:
+                    site["category"] = "动漫"
+                elif "磁力" in name_val or "索" in name_val or "盘" in name_val or "云盘" in name_val or "4K" in name_val:
+                    site["category"] = "网盘/磁力"
+                elif "体育" in name_val or "球" in name_val or "直播" in name_val:
+                    site["category"] = "体育/直播"
+                else:
+                    site["category"] = "综合"
+
+        # 特殊指定大厂站点的固定还原命名
         for site in ordered_obj.get("sites", []):
             if "key" in site and site["key"] == "AQY":
                 site["name"] = "🦋 爱奇艺｜此接口非原创，合并自海豚佬和鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"
-    except Exception as inner_e:
-        print(f"⚠️ 提示：美化蝴蝶图标时跳过，原因: {inner_e}")
+                site["category"] = "综合"
 
-    # 写出最终文件文本并做最后微调
+    except Exception as inner_e:
+        print(f"⚠️ 提示：大屏高级美化优化处理时跳过，原因: {inner_e}")
+
+    # ====================================================================
+    # 🌟【写出最终文件与落盘】
+    # ====================================================================
     output_json_text = json.dumps(ordered_obj, ensure_ascii=False, indent=4)
 
-    # 🌟【前置写入】强制落盘，防止被上层错误阻断
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(output_json_text)
         
