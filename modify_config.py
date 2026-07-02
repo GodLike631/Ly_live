@@ -14,7 +14,7 @@ lock_file_path = 'datas/控制开关.txt'
 tracker_path = 'datas/最新接口文件名.txt'
 
 # ====================================================================
-# ⏰ 【每月 1 号自动大洗牌与控制开关自动生成逻辑 - 引入月份判定版】
+# ⏰ 【每月 1 号自动大洗牌与控制开关自动生成逻辑 - 引入月份判定版】 (原逻辑保留)
 # ====================================================================
 today = datetime.datetime.now()
 current_month = str(today.month) 
@@ -23,33 +23,23 @@ is_reset_day = (today.day == 1)
 saved_month = ""
 saved_code = ""
 
-# 1. 尝试读取现有的开关状态 (格式为 "月份-3位密码"，例如 "7-k9x")
 if os.path.exists(lock_file_path):
     with open(lock_file_path, 'r', encoding='utf-8') as f:
         content = f.read().strip()
         if "-" in content:
             saved_month, saved_code = content.split("-", 1)
         else:
-            # 如果里面是老脚本留下的纯文本或旧密码
             saved_code = content
 
-# 🎯 判定：如果是 1 号，且记录的月份不是当前月份（说明是当月第一次跑，跨月了）
 if is_reset_day and saved_month != current_month:
-    # 随机生成 3 位新密码
     current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=3))
-    # 写入当前月份和新密码，例如 "7-k9x"
     with open(lock_file_path, 'w', encoding='utf-8') as f:
         f.write(f"{current_month}-{current_token}")
     print(f"⏰ 【每月1号全新硬核洗牌】检测到进入新月份 {current_month} 月！已全自动抽签生成本月新密锁: {current_token}")
-
-# 🎯 判定：如果是 1 号的第二次及后续运行
 elif is_reset_day and saved_month == current_month:
     current_token = saved_code
     print(f"🔒 【安全阀拦截】今日 1 号已经是当月第二次运行，保持原暗号: {current_token}")
-
-# 🎯 平常日子
 else:
-    # 如果平时发现开关空了，或者里面还是旧的不带月份的密码，立刻初始化
     if not saved_code or len(saved_code) != 3 or "-" not in (content if os.path.exists(lock_file_path) else ""):
         current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=3))
         with open(lock_file_path, 'w', encoding='utf-8') as f:
@@ -58,7 +48,6 @@ else:
         current_token = saved_code
     print(f"📡 正常沿用本月密锁: {current_token}")
 
-# 3. 🎯 严格判定最终输出的文件名（原汁原味：老杨TV纯净版）
 if current_token in ["全量版", "纯净版"]:
     output_filename = "老杨TV纯净版.json"
 else:
@@ -68,7 +57,7 @@ output_path = f"datas/{output_filename}"
 print(f"🎯 最终结算 -> 目标输出：{output_filename}")
 
 # ====================================================================
-# 🛡️ 【金蝉脱壳：绿色版过期旧线一键调包为纯文字滚动大轰炸 - 沿用原脚本提示】
+# 🛡️ 【金蝉脱壳：绿色版过期旧线一键调包为纯文字滚动大轰炸】 (原逻辑保留)
 # ====================================================================
 old_configs = glob.glob('datas/老杨TV纯净版*.json') + glob.glob('datas/老杨TV无18*.json')
 for old_file in old_configs:
@@ -98,7 +87,7 @@ for garbage in ['datas/local_config.json', *glob.glob('datas/config_*.json')]:
 
 
 # ====================================================================
-# 🧠 【核心逻辑：正统 JSON 对象读取与合并逻辑】
+# 🧠 【核心逻辑：正统 JSON 对象读取与合并逻辑】 (原逻辑保留)
 # ====================================================================
 def load_json_safe(path):
     if not os.path.exists(path):
@@ -116,7 +105,6 @@ json_haitun = load_json_safe(haitun_path)
 haitun_sites = json_haitun.get("sites", [])
 haitun_lives = json_haitun.get("lives", [])
 
-# 给海豚源打上后缀标签
 for item in haitun_sites:
     if "name" in item:
         item["name"] = f"{item['name']}｜Tg：@huliys9"
@@ -124,7 +112,6 @@ for item in haitun_lives:
     if "name" in item:
         item["name"] = f"{item['name']}｜Tg：@huliys9"
 
-# 精准插入“乡村电视占位符”到直播数组索引 5（第 6 位）
 country_live_dict = {
     "name": "乡村电视安全防屏蔽占位符",
     "type": 0,
@@ -137,27 +124,23 @@ if len(haitun_lives) >= 5:
 else:
     haitun_lives.append(country_live_dict)
 
-# ====================================================================
-# 🚀 数组大合并：【完美调整顺序】海豚排上面 ➡️ 最后接 cnb
-# ====================================================================
 cnb_sites = json_cnb.get("sites", [])
 cnb_lives = json_cnb.get("lives", [])
+
+# 備份去重時需要的原有解析列表
+combined_parses = json_haitun.get("parses", []) + json_cnb.get("parses", [])
 
 json_cnb["sites"] = haitun_sites + cnb_sites
 json_cnb["lives"] = haitun_lives + cnb_lives
 
-# 转换为文本进行清洗与特调
 final_json_text = json.dumps(json_cnb, ensure_ascii=False, indent=4)
 
-# 补全关键 jar 依赖
 final_json_text = final_json_text.replace('"key": "hajim-腾讯备"', '"spider": "./tvbox.jar",\n            "key": "hajim-腾讯备"')
 final_json_text = final_json_text.replace('"key": "茫茫"', '"spider": "./tvbox.jar",\n            "key": "茫茫"')
 
-# 净化海豚残留词
 final_json_text = final_json_text.replace('🐬', '').replace('海豚影视', '').replace('海豚', '')
 final_json_text = final_json_text.replace('完全免费，如有收费的都是骗子', '').replace('交流群 TG：@hshsjk9', '')
 
-# 替换本地路径为绝对网络路径
 path_replacements = {
     './spider.jar': 'https://cnb.cool/fish2018/xs/-/git/raw/main/spider.jar',
     './XBPQ/': 'https://cnb.cool/fish2018/xs/-/git/raw/main/XBPQ/',
@@ -170,9 +153,8 @@ path_replacements = {
 for src, dst in path_replacements.items():
     final_json_text = final_json_text.replace(src, dst)
 
-# 绿色版开机公告注入 (原汁原味保留老杨TV公告)
 thanks_warning = "👑 特别致谢与版权声明\n本接口的诞生离不开大后方几位业内顶流技术大佬的无私奉献，特此致谢：\n🐋 感谢鱼佬的付出\n源码基础与发布主页: fish2018/webhtv\n版本发布绝对地址: fish2018/webhtv/releases\nTelegram 官方群组: 👉 https://t.me/webhtv\n 感谢佬的付出\n核心仓库主页: FGBLH/GHK\n数据源直链地址: FGBLH/GHK/.json\nTelegram 官方群组: 👉 https://t.me/hshsjk9"
-welcome_notice = "👑 欢迎使用【老杨TV粉丝专属绿色纯净线】！本接口由老杨TV结合海豚大佬＆鱼佬的优质资源缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！"
+welcome_notice = "👑 欢迎使用【老杨TV粉丝专属绿色纯净线】！本接口由老杨TV结合海豚大佬＆鱼佬的优质资源缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9']或微信群获取当前最新密码！"
 
 try:
     final_obj = json.loads(final_json_text)
@@ -184,7 +166,7 @@ try:
     if "warningText" in final_obj: ordered_obj["warningText"] = final_obj.pop("warningText")
     ordered_obj.update(final_obj)
     
-    # 🛡️ 绿色版专属核心：全自动全盘对象级物理擦除 18 禁不健康元素
+    # 🛡️ 绿色版专属核心：全自动全盘对象级物理擦除 18 禁不健康元素 (原汁原味保留)
     clean_sites = []
     for site in ordered_obj.get("sites", []):
         site_str = json.dumps(site, ensure_ascii=False)
@@ -206,10 +188,20 @@ try:
             live["name"] = "乡村电视 ｜Tg：@huliys9"
 
     # ====================================================================
-    # 🌟【全新注入：深度大屏体验优化区】
+    # 🌟【全新黑科技注入區：大屏體驗極致優化】
     # ====================================================================
     try:
-        # --- 1. 注入国内低延迟 AliDNS 到 doh 首位 ---
+        # --- 1. 解析器去重與優化加載 ---
+        unique_parses = []
+        seen_names = set()
+        for p in combined_parses:
+            name = p.get("name", "")
+            if name and name not in seen_names:
+                unique_parses.append(p)
+                seen_names.add(name)
+        ordered_obj["parses"] = unique_parses
+
+        # --- 2. 注入國內低延遲 AliDNS 到 doh 首位 ---
         if "doh" in ordered_obj and isinstance(ordered_obj["doh"], list):
             ali_doh = {
                 "name": "AliDNS",
@@ -219,23 +211,51 @@ try:
             if not any(d.get("name") == "AliDNS" for d in ordered_obj["doh"]):
                 ordered_obj["doh"].insert(0, ali_doh)
 
-        # --- 2. 物理剔除直播 lives 列表末尾的无用空对象 {} 规避电视闪退 ---
+        # --- 3. 物理剔除直播流末尾的無用空對象 {} 規避閃退 ---
         if "lives" in ordered_obj and isinstance(ordered_obj["lives"], list):
             ordered_obj["lives"] = [live for live in ordered_obj["lives"] if live]
 
-        # --- 3. 站点名字精准裁切尾巴 + 智能排版自动分类 ---
+        # --- 4. 雲端高級去廣告 WebView JS 腳本強勢注入 ---
+        custom_js_rules = [
+            "console.log('老楊TV綠色版高級WebView攔截器啟動');",
+            "window.addEventListener('DOMContentLoaded', function() {",
+            "   document.querySelectorAll('video').forEach(v => { v.muted = true; v.play().catch(e=>{}); });",
+            "   Function.prototype.__constructor__ = Function.prototype.constructor;",
+            "   Function.prototype.constructor = function() { if (arguments && typeof arguments[0] === 'string' && arguments[0].includes('debugger')) { return function(){}; } return Function.prototype.__constructor__.apply(this, arguments); };",
+            "});",
+            "setInterval(() => {",
+            "   let selectors = ['.adv-class', '.pop-banner', '#notice-modal', '[id*=\"partner\"]', '[class*=\"baidu\"]', 'iframe[src*=\"game\"]', 'iframe[src*=\"bet\"]', '#pop-ad', '.sidebar-ads', 'a[href*=\"999\"]'];",
+            "   selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.remove()); });",
+            "}, 400);"
+        ]
+
+        current_rules = ordered_obj.get("rules", [])
+        if not isinstance(current_rules, list):
+            current_rules = []
+            
+        ad_hosts = ["vip.wwgz.cn", "lziplayer.com", "m3u8.apibdzy.com", "cj.ffzyapi.com", "api.hbzyapi.com"]
+        for rule in current_rules:
+            if isinstance(rule, dict) and "hosts" in rule:
+                for h in rule["hosts"]:
+                    if h not in ad_hosts: ad_hosts.append(h)
+
+        js_injection_rule = {
+            "name": "老楊TV·雲端高級去廣告JS注入",
+            "hosts": ad_hosts,
+            "script": custom_js_rules
+        }
+        ordered_obj["rules"] = [js_injection_rule] + [r for r in current_rules if r.get("name") != "老楊TV·雲端高級去廣告JS注入"]
+
+        # --- 5. 站點名字精準美化 + 智慧大類自動劃分 ---
         tg_tail_count = 0
-        
         for site in ordered_obj.get("sites", []):
             if "name" in site:
                 name_val = site["name"]
                 
-                # 去除杂质字符（原脚本基础美化）
                 for char in ['丨', '┃', ' ']:
                     name_val = name_val.strip(char)
                 name_val = re.sub(r'\s+', ' ', name_val)
                 
-                # 【保留前5个TG后缀】核心逻辑
                 if "｜Tg：@huliys9" in name_val:
                     tg_tail_count += 1
                     if tg_tail_count > 5:
@@ -245,13 +265,12 @@ try:
                     if tg_tail_count > 5:
                         name_val = name_val.replace("｜Tg:@huliys9", "").strip()
 
-                # 前缀统一强制补全蝴蝶图标
                 if not name_val.startswith("🦋"):
                     name_val = f"🦋 {name_val}"
                 
                 site["name"] = name_val
 
-                # 【智能分类与搜索过滤】由于是纯净绿色版，剔除了成人分类
+                # 【智能大类划分】纯净绿色版剔除了成人大类
                 s_key = site.get("key", "")
                 s_genre = site.get("genre", "")
                 
@@ -259,7 +278,7 @@ try:
                     site["category"] = "短剧"
                 elif "少儿" in name_val or "课堂" in name_val or "教学" in name_val:
                     site["category"] = "少儿"
-                    site["searchable"] = 0  # 音乐、教育类不污染主页搜索
+                    site["searchable"] = 0
                     site["quickSearch"] = 0
                 elif "音乐" in name_val or "网易云" in name_val or "听书" in name_val or "唱会" in name_val or "FM" in name_val:
                     site["category"] = "音乐"
@@ -274,7 +293,6 @@ try:
                 else:
                     site["category"] = "综合"
 
-        # 特殊指定大厂站点的固定还原命名
         for site in ordered_obj.get("sites", []):
             if "key" in site and site["key"] == "AQY":
                 site["name"] = "🦋 爱奇艺｜此接口非原创，合并自海豚佬和鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"
@@ -299,7 +317,6 @@ try:
 except Exception as e:
     print(f"❌ 严重错误：最后的本地过滤渲染失败，reason: {e}")
 
-# 🌟 双重保险
 if not os.path.exists(lock_file_path) or "-" not in (open(lock_file_path, 'r', encoding='utf-8').read() if os.path.exists(lock_file_path) else ""):
     with open(lock_file_path, 'w', encoding='utf-8') as f:
         f.write(f"{current_month}-{current_token}")
