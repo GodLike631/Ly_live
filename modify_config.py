@@ -301,6 +301,10 @@ try:
                 site["name"] = "豆瓣 • 首页｜此接口非原创，合并自海豚佬 and 鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"
                 site["category"] = "综合"
                 site["searchable"] = 0
+    
+                # 🌟【硬核修复】强制要求豆瓣首页调用页面底部的 parses 解析列表，彻底封死网盘嗅探失败的死局
+                site["parse"] = 1
+    
                 block_1_douban.append(site)
                 
             elif "短剧" in raw_name or "剧场" in raw_name:
