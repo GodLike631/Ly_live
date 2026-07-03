@@ -66,7 +66,6 @@ for old_file in old_configs:
             trap_json = {
                 "spider": "", 
                 "notice": "⚠️ 警告：当前“老杨TV”绿色专线密码已过期断流！老链接已彻底作废！\n\n最新密码或纯净版链接加QQ群“532637640”获取",
-                "warningText": "👑 特别提示：加QQ群“532637640”获取",
                 "sites": [
                     {"key": "老杨绿色纯文字提示", "name": "➡️ 请前往QQ群“532637640”获取最新密码🚨 ➡️ 请前往QQ群“532637640”获取最新密码", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0},
                     {"key": "老杨绿色纯文字提示2", "name": "🚨 不要看这里了 ➡️ 请前往QQ群“532637640”获取最新密码", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0}
@@ -87,7 +86,7 @@ for garbage in ['datas/local_config.json', *glob.glob('datas/config_*.json')]:
 
 
 # ====================================================================
-# 🧠 【核心逻辑：正统 JSON 对象读取与合并逻辑】 (原逻辑保留)
+# 🧠 【核心逻辑：正统 JSON 对象读取与合并逻辑】
 # ====================================================================
 def load_json_safe(path):
     if not os.path.exists(path):
@@ -116,7 +115,7 @@ country_live_dict = {
     "name": "乡村电视安全防屏蔽占位符",
     "type": 0,
     "playerType": 2,
-    "ua": "okhttp",
+    "ua": "okhttp/5.3.2",
     "url": "https://gh-proxy.com/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E4%B9%A1%E6%9D%91%E7%94%B5%E8%A7%86.txt"
 }
 if len(haitun_lives) >= 5:
@@ -153,20 +152,24 @@ path_replacements = {
 for src, dst in path_replacements.items():
     final_json_text = final_json_text.replace(src, dst)
 
-thanks_warning = "👑 特别致谢与版权声明\n本接口的诞生离不开大后方几位业内顶流技术大佬的无私奉献，特此致谢：\n🐋 感谢鱼佬的付出\n源码基础与发布主页: fish2018/webhtv\n版本发布绝对地址: fish2018/webhtv/releases\nTelegram 官方群组: 👉 https://t.me/webhtv\n 感谢佬的付出\n核心仓库主页: FGBLH/GHK\n数据源直链地址: FGBLH/GHK/.json\nTelegram 官方群组: 👉 https://t.me/hshsjk9"
-welcome_notice = "👑 欢迎使用【老杨TV粉丝专属绿色纯净线】！本接口由老杨TV结合海豚佬＆鱼佬的优质资源缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9']或微信群获取当前最新密码！"
+thanks_warning = "\n\n👑 【特别致谢与版权声明】\n本接口的诞生离不开大后方几位业内顶流技术大佬的无私奉献，特此致谢：\n🐋 感谢鱼佬的付出 (源码基础: fish2018/webhtv，TG群: https://t.me/webhtv)\n 感谢佬的付出 (核心仓库: FGBLH/GHK，TG群: https://t.me/hshsjk9)"
+welcome_notice = "👑 欢迎使用【老杨TV粉丝专属绿色纯净线】！本接口由老杨TV结合海豚佬＆鱼佬的优质资源缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！"
 
 try:
     final_obj = json.loads(final_json_text)
-    final_obj["notice"] = welcome_notice
-    final_obj["warningText"] = thanks_warning
+    
+    # 🌟【FongMi 规范性改造】公告与致谢合并到 notice，并物理擦除无用 warningText
+    final_obj["notice"] = welcome_notice + thanks_warning
+    if "warningText" in final_obj:
+        final_obj.pop("warningText")
     
     ordered_obj = {}
-    if "notice" in final_obj: ordered_obj["notice"] = final_obj.pop("notice")
-    if "warningText" in final_obj: ordered_obj["warningText"] = final_obj.pop("warningText")
+    if "notice" in final_obj: 
+        ordered_obj["notice"] = final_obj.pop("notice")
+        
     ordered_obj.update(final_obj)
     
-    # 🛡️ 绿色版专属核心：全自动全盘对象级物理擦除 18 禁不健康元素 (原汁原味保留)
+    # 🛡️ 绿色版原功能保留：全自动全盘对象级物理擦除 18 禁不健康元素
     clean_sites = []
     for site in ordered_obj.get("sites", []):
         site_str = json.dumps(site, ensure_ascii=False)
@@ -177,14 +180,18 @@ try:
     for live in ordered_obj.get("lives", []):
         live_str = json.dumps(live, ensure_ascii=False)
         if "🔞" not in live_str and "18+" not in live_str and "有三级片" not in live_str:
-            clean_lives.append(live)
+            if live and isinstance(live, dict):
+                # 🛠️ 优化：直播流统一补齐或升级最稳健的 okhttp/5.3.2 UA
+                if not live.get("ua") or live.get("ua") == "okhttp":
+                    live["ua"] = "okhttp/5.3.2"
+                clean_lives.append(live)
             
     ordered_obj["sites"] = clean_sites
     ordered_obj["lives"] = clean_lives
 
     # 🎯 【靶向解密还原】：净化做完后，把乡村电视的名字完美恢复
     for live in ordered_obj.get("lives", []):
-        if live.get("name") == "乡村电视安全防屏蔽占位符":
+        if live.get("name") == "乡村电视安全防屏蔽占位符" or "乡村电视" in live.get("name", ""):
             live["name"] = "乡村电视 ｜Tg：@huliys9"
 
     # ====================================================================
@@ -201,8 +208,12 @@ try:
                 seen_names.add(name)
         ordered_obj["parses"] = unique_parses
 
-        # --- 2. 注入國內低延遲 AliDNS 到 doh 首位 ---
+        # --- 2. 注入國內低延遲 AliDNS 到 doh 首位 并修复潜在拼写错误 ---
         if "doh" in ordered_obj and isinstance(ordered_obj["doh"], list):
+            for doh_item in ordered_obj["doh"]:
+                if doh_item.get("url", "").endswith("/dns-quer"):
+                    doh_item["url"] = doh_item["url"] + "y"
+            
             ali_doh = {
                 "name": "AliDNS",
                 "url": "https://dns.alidns.com/dns-query",
@@ -240,63 +251,130 @@ try:
                     if h not in ad_hosts: ad_hosts.append(h)
 
         js_injection_rule = {
-            "name": "老楊TV·雲端高級去廣告JS注入",
+            "name": "老楊TV·雲端高級去广告JS注入",
             "hosts": ad_hosts,
             "script": custom_js_rules
         }
-        ordered_obj["rules"] = [js_injection_rule] + [r for r in current_rules if r.get("name") != "老楊TV·雲端高級去廣告JS注入"]
+        ordered_obj["rules"] = [js_injection_rule] + [r for r in current_rules if r.get("name") != "老楊TV·雲端高級去广告JS注入"]
 
-        # --- 5. 站點名字精準美化 + 智慧大類自動劃分 ---
+        # --- 5 & 6. 站點名字清洗、智慧大類劃分 与 九大方阵动态重排同步清洗算法 ---
+        block_1_douban = []       # 1. 豆瓣首页专享
+        block_2_yingshi = []      # 2. 影视/追剧/APP大类
+        block_3_duanju = []       # 3. 短剧/剧场
+        block_4_dongman = []      # 4. 动漫类
+        block_5_cili = []         # 5. 网盘/磁力/4K
+        block_6_tiyu = []         # 6. 体育/看球/直播
+        block_7_shaoer = []       # 7. 少儿课堂/教育
+        block_8_yinyue = []       # 8. 音乐/听书/功能线/DJ
+        block_9_fuli = []         # 9. 福利/18禁 (绿色纯净版理论上此列表为空)
+
         tg_tail_count = 0
+
         for site in ordered_obj.get("sites", []):
-            if "name" in site:
-                name_val = site["name"]
+            if "name" not in site:
+                continue
                 
-                for char in ['丨', '┃', ' ']:
-                    name_val = name_val.strip(char)
-                name_val = re.sub(r'\s+', ' ', name_val)
-                
-                if "｜Tg：@huliys9" in name_val:
-                    tg_tail_count += 1
-                    if tg_tail_count > 5:
-                        name_val = name_val.replace("｜Tg：@huliys9", "").strip()
-                elif "｜Tg:@huliys9" in name_val:
-                    tg_tail_count += 1
-                    if tg_tail_count > 5:
-                        name_val = name_val.replace("｜Tg:@huliys9", "").strip()
+            raw_name = site["name"]
+            s_key = site.get("key", "")
+            s_genre = site.get("genre", "")
+            
+            # 清洗基础名称
+            for char in ['丨', '┃', ' ']:
+                raw_name = raw_name.strip(char)
+            raw_name = re.sub(r'\s+', ' ', raw_name)
+            
+            if "｜Tg：@huliys9" in raw_name:
+                tg_tail_count += 1
+                if tg_tail_count > 5: raw_name = raw_name.replace("｜Tg：@huliys9", "").strip()
+            elif "｜Tg:@huliys9" in raw_name:
+                tg_tail_count += 1
+                if tg_tail_count > 5: raw_name = raw_name.replace("｜Tg:@huliys9", "").strip()
 
-                if not name_val.startswith("🦋"):
-                    name_val = f"🦋 {name_val}"
-                
-                site["name"] = name_val
+            if "ext" in site and site["ext"] == {}:
+                site["ext"] = ""
 
-                # 【智能大类划分】纯净绿色版剔除了成人大类
-                s_key = site.get("key", "")
-                s_genre = site.get("genre", "")
+            # 🛠️ 瓜子靶向保护：防误伤，强力摘出
+            is_guazi = "瓜子" in raw_name or "GZ" == s_key
+
+            # 🛠️ 阵营智能判定与分类组装
+            if "豆瓣" in raw_name and "首页" in raw_name:
+                site["name"] = "豆瓣 • 首页｜此接口非原创，合并自海豚佬 and 鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"
+                site["category"] = "综合"
+                site["searchable"] = 0
+                block_1_douban.append(site)
                 
-                if s_genre == "shortdrama" or "短剧" in name_val or "dj" in s_key.lower():
-                    site["category"] = "短剧"
-                elif "少儿" in name_val or "课堂" in name_val or "教学" in name_val:
-                    site["category"] = "少儿"
-                    site["searchable"] = 0
-                    site["quickSearch"] = 0
-                elif "音乐" in name_val or "网易云" in name_val or "听书" in name_val or "唱会" in name_val or "FM" in name_val:
+            elif "短剧" in raw_name or "剧场" in raw_name:
+                # 🛠️ 修正：包含 DJ/dj 关键词的线一律强行分流进入音乐阵营
+                if "dj" in raw_name.lower() or "dj" in s_key.lower():
+                    if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
+                    site["name"] = raw_name
                     site["category"] = "音乐"
                     site["searchable"] = 0
-                    site["quickSearch"] = 0
-                elif "动漫" in name_val or "新番" in name_val or "Anime" in s_key:
-                    site["category"] = "动漫"
-                elif "磁力" in name_val or "索" in name_val or "盘" in name_val or "云盘" in name_val or "4K" in name_val:
-                    site["category"] = "网盘/磁力"
-                elif "体育" in name_val or "球" in name_val or "直播" in name_val:
-                    site["category"] = "体育/直播"
+                    block_8_yinyue.append(site)
+                else:
+                    if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
+                    site["name"] = raw_name
+                    site["category"] = "短剧"
+                    site["genre"] = "shortdrama"
+                    block_3_duanju.append(site)
+                    
+            elif "动漫" in raw_name or "新番" in raw_name or "anime" in s_key.lower() or "a1" in raw_name.lower():
+                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
+                site["name"] = raw_name
+                site["category"] = "动漫"
+                block_4_dongman.append(site)
+                
+            elif "磁力" in raw_name or "索" in raw_name or "盘" in raw_name or "云盘" in raw_name or "4k" in raw_name.lower():
+                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
+                site["name"] = raw_name
+                site["category"] = "网盘/磁力"
+                if "PanWebShare" in site.get("api", ""):
+                    site["changeable"] = 1
+                block_5_cili.append(site)
+                
+            elif "体育" in raw_name or "球" in raw_name or "直播" in raw_name:
+                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
+                site["name"] = raw_name
+                site["category"] = "体育/直播"
+                block_6_tiyu.append(site)
+                
+            elif "少儿" in raw_name or "课堂" in raw_name or "教学" in raw_name or "教育" in raw_name:
+                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
+                site["name"] = raw_name
+                site["category"] = "少儿"
+                site["searchable"] = 0
+                block_7_shaoer.append(site)
+                
+            elif "音乐" in raw_name or "网易云" in raw_name or "听书" in raw_name or "唱会" in raw_name or "fm" in raw_name.lower() or "相声" in raw_name or "小品" in raw_name or "戏曲" in raw_name or "推送" in raw_name or "配置" in raw_name or "版本" in raw_name or "本地" in raw_name or "dj" in raw_name.lower() or "dj" in s_key.lower():
+                # 🛠️ 音乐和DJ专线统一合流进入第八阵营并修改对应category开关
+                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
+                site["name"] = raw_name
+                if "音乐" in raw_name or "网易云" in raw_name or "听书" in raw_name or "fm" in raw_name.lower() or "dj" in raw_name.lower() or "dj" in s_key.lower():
+                    site["category"] = "音乐"
                 else:
                     site["category"] = "综合"
-
-        for site in ordered_obj.get("sites", []):
-            if "key" in site and site["key"] == "AQY":
-                site["name"] = "🦋 爱奇艺｜此接口非原创，合并自海豚佬和鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"
+                site["searchable"] = 0
+                block_8_yinyue.append(site)
+                
+            else:
+                # 影视/追剧/APP大类（包括洗净的瓜子影视等）
+                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
+                site["name"] = raw_name
                 site["category"] = "综合"
+                block_2_yingshi.append(site)
+
+            # 补齐非音乐少儿类的影视全局搜索开关
+            if site.get("category") not in ["少儿", "音乐"] and "searchable" not in site:
+                site["searchable"] = 1
+
+        # 🛠️ 爱奇艺纯净线名称修复，去掉冗长致谢词，强制换上统一的官方TG后缀
+        for site in block_2_yingshi:
+            if site.get("key") == "AQY":
+                site["name"] = "🦋 爱奇艺 ｜Tg：@huliys9"
+
+        # 👑 按九大方阵顺序重组，落盘（福利 block_9 在绿色版中会被前方的擦除功能干掉，保持空列表安全坠尾）
+        ordered_obj["sites"] = block_1_douban + block_2_yingshi + block_3_duanju + block_4_dongman + block_5_cili + block_6_tiyu + block_7_shaoer + block_8_yinyue + block_9_fuli
+        print(f"🚀 【重排结算】绿色精简版洗牌算法圆满完成！豆瓣置顶并谢鸣、瓜子返航、DJ合流、18禁残余已全数清空。")
 
     except Exception as inner_e:
         print(f"⚠️ 提示：大屏高级美化优化处理时跳过，原因: {inner_e}")
