@@ -10,7 +10,8 @@
             "type": 3,
             "api": "csp_Douban",
             "searchable": 0,
-            "category": "综合"
+            "category": "综合",
+            "parse": 1
         },
         {
             "key": "AQY",
