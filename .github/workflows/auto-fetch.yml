@@ -34,7 +34,7 @@ jobs:
       run: |
         python modify_config.py
 
-    # 3. 核心修正：精准同步控制开关并提交
+    # 3. 核心修正：全量追踪、中文防乱码、缓冲区精准防护提交机制
     - name: Commit and Push changes
       run: |
         git config --global user.name "github-actions[bot]"
@@ -46,9 +46,10 @@ jobs:
         # 🌟 直接把整个 datas 文件夹全部 add 进来，不管中文名怎么变都能 100% 抓到
         git add datas/
         
-        if git diff-index --quiet HEAD; then
-          echo "文件没有变化，无需更新。"
-        else
+        # 🌟【终极防错】只比对已经被 git add 进去的缓存区行内容。有真实内容变化才提交，无变化就优雅跳过
+        if ! git diff --cached --exit-code --quiet; then
           git commit -m "双源自适应硬核净化合并 (老杨TV纯净版系列): $(date +'%Y-%m-%d %H:%M:%S')"
-          git push
+          git push origin main
+        else
+          echo "文件内容没有发生实际变化，无需更新，跳过本次提交。"
         fi
