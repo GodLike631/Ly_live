@@ -15,7 +15,7 @@ tracker_path = 'datas/最新接口文件名.txt'
 
 # ====================================================================
 # ✍️ 【通道一：老杨专属点播手工加线区】
-# 提示：想单独加点播爬虫线贴在这里，自动享受后面的绿色内容净化与方阵洗牌规则。
+# 提示：单独加点播爬虫线贴在这里，如果上游有同 key 线路，脚本会自动蒸发上游、以此处为准。
 # ====================================================================
 MY_CUSTOM_SITES = [
     {
@@ -37,11 +37,18 @@ MY_CUSTOM_SITES = [
 ]
 
 # ====================================================================
-# 📺 【通道二：老杨专属直播手工加线区（精准插入第 6 位）】
-# 提示：以后你想添加任何单独的 M3U 直连线路，直接用你最习惯的字典格式贴在这里！
-# 贴在这里的线路，在打包落盘时，会被脚本雷打不动地强行插到最终 lives 列表的第 6 位！
+# 📺 【通道二：老杨专属直播手工加线区（从第 6 位开始正向依序后排）】
+# 提示：在此处贴入的直播单线字典，第一个会自动排在第 6 位，剩下的会紧跟其后依次顺延排在第 7 位、第 8 位……
+# 如果手工加的直播线路名字与上游重复，脚本同样会自动触发“特权锁”全自动蒸发上游同名源！
 # ====================================================================
 MY_CUSTOM_LIVES = [
+    {
+        "name": "乡村电视 ｜Tg：@huliys9",
+        "type": 0,
+        "playerType": 2,
+        "ua": "okhttp/5.3.2",
+        "url": "https://gh-proxy.com/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E4%B9%A1%E6%9D%91%E7%94%B5%E8%A7%86.txt"
+    },
     {
         "name": "最新电影｜Tg：@huliys9",
         "type": 0,
@@ -148,35 +155,30 @@ for item in haitun_lives:
     if "name" in item:
         item["name"] = f"{item['name']}｜Tg：@huliys9"
 
-country_live_dict = {
-    "name": "乡村电视安全防屏蔽占位符",
-    "type": 0,
-    "playerType": 2,
-    "ua": "okhttp/5.3.2",
-    "url": "https://gh-proxy.com/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E4%B9%A1%E6%9D%91%E7%94%B5%E8%A7%86.txt"
-}
-if len(haitun_lives) >= 5:
-    haitun_lives.insert(5, country_live_dict)
-else:
-    haitun_lives.append(country_live_dict)
-
 cnb_sites = json_cnb.get("sites", [])
 cnb_lives = json_cnb.get("lives", [])
 
 # 備份去重時需要的原有解析列表
 combined_parses = json_haitun.get("parses", []) + json_cnb.get("parses", [])
 
-# ➕ 【核心合流：点播合并逻辑】
-json_cnb["sites"] = haitun_sites + cnb_sites + MY_CUSTOM_SITES
+# ➕ 【手工特权点播去重锁】智能检测上游，若有冲突，物理蒸发上游重名 key 线路
+custom_keys = {site.get("key") for site in MY_CUSTOM_SITES if site.get("key")}
+upstream_sites = haitun_sites + cnb_sites
+clean_upstream_sites = [site for site in upstream_sites if site.get("key") not in custom_keys]
+json_cnb["sites"] = clean_upstream_sites + MY_CUSTOM_SITES
 
-# ➕ 【核心置中：直播精准插入至第 6 位逻辑】
+# ➕ 【手工特权直播去重锁 & 第6位正向依序后排核心算法】
+custom_live_names = {live.get("name") for live in MY_CUSTOM_LIVES if live.get("name")}
 base_lives = haitun_lives + cnb_lives
-for custom_live in reversed(MY_CUSTOM_LIVES):
-    if len(base_lives) >= 5:
-        base_lives.insert(5, custom_live)
+clean_base_lives = [live for live in base_lives if live.get("name") not in custom_live_names]
+
+# 使用正向索引切片插入，让你的手工列表第一条霸占第 6 位（Index 5），后续依序正向后排展开发射
+for i, custom_live in enumerate(MY_CUSTOM_LIVES):
+    if len(clean_base_lives) >= (5 + i):
+        clean_base_lives.insert(5 + i, custom_live)
     else:
-        base_lives.append(custom_live)
-json_cnb["lives"] = base_lives
+        clean_base_lives.append(custom_live)
+json_cnb["lives"] = clean_base_lives
 
 final_json_text = json.dumps(json_cnb, ensure_ascii=False, indent=4)
 
@@ -199,7 +201,7 @@ for src, dst in path_replacements.items():
     final_json_text = final_json_text.replace(src, dst)
 
 thanks_warning = "\n\n👑 如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！"
-welcome_notice = "👑 欢迎使用【老杨TV粉丝专属绿色纯净线】！本接口由老杨TV结合海豚佬＆鱼佬的优质资源缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！"
+welcome_notice = "👑 欢迎使用【老杨TV粉丝专属绿色纯净线】！本接口由老杨TV结合海豚佬＆鱼佬的优质 resource 缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！"
 
 try:
     final_obj = json.loads(final_json_text)
@@ -233,11 +235,6 @@ try:
             
     ordered_obj["sites"] = clean_sites
     ordered_obj["lives"] = clean_lives
-
-    # 🎯 【靶向解密还原】：净化做完后，把乡村电视的名字完美恢复
-    for live in ordered_obj.get("lives", []):
-        if live.get("name") == "乡村电视安全防屏蔽占位符" or "乡村电视" in live.get("name", ""):
-            live["name"] = "乡村电视 ｜Tg：@huliys9"
 
     # ====================================================================
     # 🌟【全新深度体验优化区】
@@ -279,8 +276,8 @@ try:
             "   Function.prototype.__constructor__ = Function.prototype.constructor;",
             "   Function.prototype.constructor = function() { if (arguments && typeof arguments[0] === 'string' && arguments[0].includes('debugger')) { return function(){}; } return Function.prototype.__constructor__.apply(this, arguments); };",
             "});",
-            "setInterval(() => {",
-            "   let selectors = ['.adv-class', '.pop-banner', '#notice-modal', '[id*=\"partner\"]', '[class*=\"baidu\"]', 'iframe[src*=\"game\"]', 'iframe[src*=\"bet\"]', '#pop-ad', '.sidebar-ads', 'a[href*=\"999\"]'];",
+            "setInterval(() => {
+                let selectors = ['.adv-class', '.pop-banner', '#notice-modal', '[id*=\"partner\"]', '[class*=\"baidu\"]', 'iframe[src*=\"game\"]', 'iframe[src*=\"bet\"]', '#pop-ad', '.sidebar-ads', 'a[href*=\"999\"]'];",
             "   selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.remove()); });",
             "}, 400);"
         ]
@@ -439,7 +436,7 @@ try:
         # 👑 按九大方阵完美合组沉底（Index 0热播APP完美登顶，另一个热播rb大部队影视类自流）
         ordered_obj["sites"] = (
             block_1_rebo +         # 1. 🎯 "key": "热播影视" 绝对置顶 (0号位海报墙扛把子)
-            block_2_yingshi +      # 2. 传统综合影视单线路 (包含回归的豆瓣首页和 key: rb 线路)
+            block_2_yingshi +      # 2. 传统综合影视单线路 (包含回归的豆瓣首页 and key: rb 线路)
             block_3_duanju +       # 3. 独立短剧
             block_4_dongman +      # 4. 动漫新番
             block_6_tiyu +         # 5. 体育直播
