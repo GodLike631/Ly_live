@@ -14,6 +14,24 @@ lock_file_path = 'datas/控制开关.txt'
 tracker_path = 'datas/最新接口文件名.txt'
 
 # ====================================================================
+# ✍️ 【老杨专属：纯净版手工便捷加线区】
+# 提示：以后你想添加任何单独的爬虫线路，直接按照标准格式贴在下面中括号里即可！
+# 贴在这里的线路会雷打不动地并入总池子，并自动享受后面的绿色内容净化与方阵洗牌规则。
+# ====================================================================
+MY_CUSTOM_SITES = [
+    # 示例1（你可以参照这个格式增删，注意每条线之间用逗号隔开）：
+    # {
+    #     "key": "山楂影视",
+    #     "name": "山楂影视.py",
+    #     "type": 3,
+    #     "api": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E5%B1%B1%E6%A5%82%E5%BD%B1%E8%A7%86.py",
+    #     "searchable": 1,
+    #     "quickSearch": 1
+    # },
+    
+]
+
+# ====================================================================
 # ⏰ 【每月 1 号自动大洗牌与控制开关自动生成逻辑 - 引入月份判定版】 (原逻辑保留)
 # ====================================================================
 today = datetime.datetime.now()
@@ -129,7 +147,8 @@ cnb_lives = json_cnb.get("lives", [])
 # 備份去重時需要的原有解析列表
 combined_parses = json_haitun.get("parses", []) + json_cnb.get("parses", [])
 
-json_cnb["sites"] = haitun_sites + cnb_sites
+# ➕ 【核心并入】将手工定制站点列表无缝和上游融为一体
+json_cnb["sites"] = haitun_sites + cnb_sites + MY_CUSTOM_SITES
 json_cnb["lives"] = haitun_lives + cnb_lives
 
 final_json_text = json.dumps(json_cnb, ensure_ascii=False, indent=4)
@@ -195,7 +214,7 @@ try:
             live["name"] = "乡村电视 ｜Tg：@huliys9"
 
     # ====================================================================
-    # 🌟【全新黑科技注入區：大屏體驗極致優化】
+    # 🌟【全新深度体验优化区】
     # ====================================================================
     try:
         # --- 1. 解析器去重與優化加載[cite: 7] ---
@@ -222,7 +241,7 @@ try:
             if not any(d.get("name") == "AliDNS" for d in ordered_obj["doh"]):
                 ordered_obj["doh"].insert(0, ali_doh)
 
-        # --- 3. 物理剔除直播流末尾的職無用空對象 {} 規避閃退[cite: 7] ---
+        # --- 3. 物理剔除直播流末尾的無用空對象 {} 規避閃退[cite: 7] ---
         if "lives" in ordered_obj and isinstance(ordered_obj["lives"], list):
             ordered_obj["lives"] = [live for live in ordered_obj["lives"] if live]
 
@@ -314,14 +333,14 @@ try:
                 block_1_rebo.append(site)
 
             elif "豆瓣" in raw_name and "首页" in raw_name:
-                # 🎯 豆瓣解绑：恢复其原本清净名，归队到综合影视大类[cite: 7]
+                # 🎯 豆瓣解绑：恢复其原本清净名，退回普通影视区 block_2[cite: 7]
                 site["name"] = "🦋 豆瓣 • 首页"
                 site["category"] = "综合"
                 site["searchable"] = 0
                 block_2_yingshi.append(site)
                 
             elif "短剧" in raw_name or "剧场" in raw_name:
-                # 🛠️ 修正：包含 DJ/dj 关键词的线一律强行分流进入音乐阵营[cite: 7]
+                # 🛠️ 包含 DJ/dj 关键词的线一律强行分流进入音乐阵营[cite: 7]
                 if "dj" in raw_name.lower() or "dj" in s_key.lower():
                     if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
                     site["name"] = raw_name
@@ -346,7 +365,7 @@ try:
                 site["name"] = raw_name
                 site["category"] = "网盘/磁力"
                 
-                # 保持网盘磁力静默不参与被动聚合搜索，双重保险隔离历史记录死锁
+                # 保持网盘磁力静默不参与被动聚合搜索，双重保险隔离历史记录死锁[cite: 7]
                 site["searchable"] = 0
                 site["quickSearch"] = 0
                 site["changeable"] = 1
@@ -393,36 +412,34 @@ try:
 
         # 👑 按九大方阵完美合组沉底（Index 0热播APP完美登顶，另一个热播rb大部队影视类自流）[cite: 7]
         ordered_obj["sites"] = (
-            block_1_rebo +         # 1. 🎯 "key": "热播影视" 绝对置顶[cite: 7]
-            block_2_yingshi +      # 2. 综合影视单线大队 (包含回归的豆瓣首页和 key: rb 线路)[cite: 7]
+            block_1_rebo +         # 1. 🎯 "key": "热播影视" 绝对置顶 (0号位海报墙扛把子)[cite: 7]
+            block_2_yingshi +      # 2. 传统综合影视单线路 (包含回归的豆瓣首页和 key: rb 线路)[cite: 7]
             block_3_duanju +       # 3. 独立短剧[cite: 7]
             block_4_dongman +      # 4. 动漫新番[cite: 7]
             block_6_tiyu +         # 5. 体育直播[cite: 7]
             block_7_shaoer +       # 6. 少儿课堂[cite: 7]
             block_8_yinyue +       # 7. 音乐/听书/功能辅助线[cite: 7]
             block_5_cili +         # 8. 网盘/磁力/4K降权区[cite: 7]
-            block_9_fuli           # 9. 福利18禁安全空队坠尾[cite: 7]
+            block_9_fuli           # 9. 福利18禁安全空队坠尾 (绿色精简线此块全空)[cite: 7]
         )
         print(f"🚀 【重排结算】绿色精简版洗牌算法圆满完成！热播APP精准抢占开机推荐，网盘洗白降权，豆瓣安全归位。")
 
     except Exception as inner_e:
-        print(f"⚠️ 提示：大屏高级美化优化处理时跳过，原因: {inner_e}")
+        print(f"⚠️ 提示：美化与智能重排阶段跳过，原因: {inner_e}")
 
     # ====================================================================
-    # 🌟【写出最终文件与落盘】
+    # 🌟【数据安全落盘】
     # ====================================================================
-    output_json_text = json.dumps(ordered_obj, ensure_ascii=False, indent=4)
-
     with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(output_json_text)
+        json.dump(ordered_obj, f, ensure_ascii=False, indent=4)
         
     with open(tracker_path, 'w', encoding='utf-8') as f:
         f.write(output_filename)
         
-    print(f"🎉 【绿色精简防屏蔽纯净版】更新成功！配置名: {output_path}")
+    print(f"🎉 纯净版更新成功！配置已写出至: {output_path}")
 
 except Exception as e:
-    print(f"❌ 严重错误：最后的本地过滤渲染失败，reason: {e}")
+    print(f"❌ 严重错误：最后的本地渲染失败，原因: {e}")
 
 if not os.path.exists(lock_file_path) or "-" not in (open(lock_file_path, 'r', encoding='utf-8').read() if os.path.exists(lock_file_path) else ""):
     with open(lock_file_path, 'w', encoding='utf-8') as f:
