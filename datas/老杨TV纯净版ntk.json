@@ -1,5 +1,5 @@
 {
-    "notice": "👑 欢迎使用【老杨TV粉丝专属绿色纯净线】！本接口由老杨TV结合海豚佬＆鱼佬的优质资源缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！\n\n👑 如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！",
+    "notice": "👑 欢迎使用【老杨TV粉丝专属绿色纯净线】！本接口由老杨TV结合海豚佬＆鱼佬的优质 resource 缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！\n\n👑 如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！",
     "spider": "https://cnb.cool/fish2018/xs/-/git/raw/main/spider.jar",
     "wallpaper": "http://127.0.0.1:9978/proxy?do=wallpaper",
     "logo": "https://img.naixiai.cn/2026/06/18/IMG_6638.jpeg",
@@ -2207,17 +2207,17 @@
             "url": "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u"
         },
         {
-            "name": "最新电影｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/Ly_18/refs/heads/main/datas/%E6%9C%80%E6%96%B0%E7%94%B5%E5%BD%B1.m3u"
-        },
-        {
             "name": "乡村电视 ｜Tg：@huliys9",
             "type": 0,
             "playerType": 2,
             "ua": "okhttp/5.3.2",
             "url": "https://gh-proxy.com/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E4%B9%A1%E6%9D%91%E7%94%B5%E8%A7%86.txt"
+        },
+        {
+            "name": "最新电影｜Tg：@huliys9",
+            "type": 0,
+            "ua": "okhttp/5.3.2",
+            "url": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/Ly_18/refs/heads/main/datas/%E6%9C%80%E6%96%B0%E7%94%B5%E5%BD%B1.m3u"
         },
         {
             "name": "海燕直播｜Tg：@huliys9",
@@ -2572,10 +2572,7 @@
                 "   Function.prototype.__constructor__ = Function.prototype.constructor;",
                 "   Function.prototype.constructor = function() { if (arguments && typeof arguments[0] === 'string' && arguments[0].includes('debugger')) { return function(){}; } return Function.prototype.__constructor__.apply(this, arguments); };",
                 "});",
-                "setInterval(() => {",
-                "   let selectors = ['.adv-class', '.pop-banner', '#notice-modal', '[id*=\"partner\"]', '[class*=\"baidu\"]', 'iframe[src*=\"game\"]', 'iframe[src*=\"bet\"]', '#pop-ad', '.sidebar-ads', 'a[href*=\"999\"]'];",
-                "   selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.remove()); });",
-                "}, 400);"
+                "setInterval(() => { let selectors = ['.adv-class', '.pop-banner', '#notice-modal', '[id*=\"partner\"]', '[class*=\"baidu\"]', 'iframe[src*=\"game\"]', 'iframe[src*=\"bet\"]', '#pop-ad', '.sidebar-ads', 'a[href*=\"999\"]']; selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.remove()); }); }, 400);"
             ]
         },
         {
