@@ -151,6 +151,14 @@
             "searchable": 1
         },
         {
+            "key": "ayf",
+            "name": "🦋 爱壹帆影视.py",
+            "type": 3,
+            "api": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/py/爱壹帆.py",
+            "category": "综合",
+            "searchable": 1
+        },
+        {
             "key": "MH",
             "name": "🦋 麻花影视.py",
             "type": 3,
