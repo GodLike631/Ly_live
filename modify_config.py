@@ -120,15 +120,6 @@ MY_CUSTOM_LIVES = [
       "ua": "okhttp/5.3.2",
       "timeout": 10,
       "playerType": 2
-    },
-    {
-      "name": "Sport「体育」｜Tg：@huliys9",
-      "type": 3,
-      "url": "https://cdn-1.yang-1989.xyz/sprt/playlist.m3u",
-      "epg":"https://material.yang-1989.xyz/epg.xml.gz",
-      "ua": "okhttp/5.3.2",
-      "timeout": 10,
-      "playerType": 2
     }
 ]
 
