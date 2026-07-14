@@ -2796,7 +2796,7 @@
                 "www.maolvys.com"
             ],
             "script": [
-                "console.log('老楊TV高級WebView攔截器啟動');",
+                "console.log('老楊TV高級WebView攔截器啟ò');",
                 "window.addEventListener('DOMContentLoaded', function() {",
                 "   document.querySelectorAll('video').forEach(v => { v.muted = true; v.play().catch(e=>{}); });",
                 "   Function.prototype.__constructor__ = Function.prototype.constructor;",
