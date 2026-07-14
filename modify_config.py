@@ -16,7 +16,7 @@ lock_file_path = 'datas/控制开关.txt'
 tracker_path = 'datas/最新接口文件名.txt'
 
 # ====================================================================
-# 🌐 【新增：国内 GitHub 加速代理配置】
+# 🌐 【国内 GitHub 加速代理配置】
 # 可随时修改此变量，末尾需保留斜杠 “/”，留空 "" 则不使用代理
 # ====================================================================
 GITHUB_PROXY = "https://gh-proxy.org/"
@@ -362,7 +362,6 @@ try:
         block_6_tiyu = []
         block_7_shaoer = []
         block_8_yinyue = []
-        block_9_fuli = []
         tg_tail_count = 0
         for site in ordered_obj.get("sites", []):
             if "name" not in site: continue
@@ -454,7 +453,8 @@ try:
         for site in block_2_yingshi:
             if site.get("key") == "AQY": site["name"] = "🦋 爱奇艺 ｜Tg：@huliys9"
 
-        ordered_obj["sites"] = (block_1_rebo + block_2_yingshi + block_3_duanju + block_4_dongman + block_6_tiyu + block_7_shaoer + block_8_yinyue + block_5_cili + block_9_fuli)
+        # 【核心净化】去除拼接 block_9_fuli，彻底从最后写出对象中移除该分类
+        ordered_obj["sites"] = (block_1_rebo + block_2_yingshi + block_3_duanju + block_4_dongman + block_6_tiyu + block_7_shaoer + block_8_yinyue + block_5_cili)
     except Exception as merge_err:
         print(f"⚠️ 合并分区异常: {merge_err}")
 
@@ -516,7 +516,7 @@ try:
                 detail_msg = "\n".join(msg_lines)
                 
                 # ------------------------------------------------------------------
-                # 🔗 【核心新增：自适应动态生成订阅链接逻辑】
+                # 🔗 【自适应动态生成订阅链接逻辑】
                 # ------------------------------------------------------------------
                 repo_info = os.getenv("GITHUB_REPOSITORY", "GodLike631/test")
                 branch_info = os.getenv("GITHUB_REF_NAME", "main")
@@ -533,7 +533,7 @@ try:
                 # 订阅链接注入到最后一句话的前面（反引号包裹支持点击复制）
                 full_msg += f"🔗 *【 订阅链接 】 (点击即可自动复制)*：\n`{full_sub_url}`\n\n"
                 
-                full_msg += f"👑 纯净版链接已在后台无缝更新，更新接口即可，若电视端遇到断流请尝试重启软件或及时前往频道（@huliys9）获取当前最新密码锁！"
+                full_msg += f"👑 纯净版链接接已在后台无缝更新，更新接口即可，若电视端遇到断流请尝试重启软件或及时前往频道（@huliys9）获取当前最新密码锁！"
 
                 # 🚀 采用高稳定的原生库发射通知，零格式转义隐患，秒速直连
                 url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
