@@ -316,7 +316,7 @@ try:
                 if doh_item.get("url", "").endswith("/dns-quer"):
                     doh_item["url"] = doh_item["url"] + "y"
             
-        ali_doh = {
+            ali_doh = {
                 "name": "AliDNS",
                 "url": "https://dns.alidns.com/dns-query",
                 "ips": ["223.5.5.5", "223.6.6.6"]
