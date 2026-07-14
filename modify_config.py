@@ -12,12 +12,13 @@ import urllib.parse
 # ⚙️ 【用户自定义专属配置区】
 # 提示：在这里修改变量，后续所有逻辑和推送会自动同步生效，无需改动下方的核心代码。
 # ====================================================================
-# 1. 国内加速前缀（末尾请务必保留斜杠“/”）
+# 1. 国内加速前缀（如果不想用任何加速，直接留空 "" 即可。末尾请保留斜杠）
 GH_PROXY = "https://gh-proxy.org/"
 
-# 2. 您的 GitHub 仓库数据存放直链路径（请将下方示例修改为您真正的 GitHub 仓库路径，末尾保留斜杠）
-# 例如: "https://raw.githubusercontent.com/您的用户名/您的仓库名/refs/heads/main/datas/"
-GITHUB_REPO_URL = "https://raw.githubusercontent.com/您的用户名/您的仓库名/refs/heads/main/datas/"
+# 2. 您的 GitHub 用户名和仓库名（用来自动生成完美的订阅直链）
+GITHUB_USER = "GodLike631"      # 填入您的 GitHub 用户名
+GITHUB_REPO = "Ly_18"           # 填入您的 仓库名称
+GITHUB_BRANCH = "main"          # 填入您的 分支名（默认 main）
 
 # ====================================================================
 # 📁 【文件路径声明】
@@ -51,6 +52,8 @@ MY_CUSTOM_SITES = [
 
 # ====================================================================
 # 📺 【通道二：老杨专属直播手工加线区（从第 6 位开始正向依序后排）】
+# ====================================================================
+# 提示：此处手工直播线也会经过敏感词安全审查，带有🔞等敏感词的会被系统自动剔除
 # ====================================================================
 MY_CUSTOM_LIVES = [
     {
@@ -218,6 +221,18 @@ def load_json_safe(path):
             print(f"❌ 错误：{path} JSON 格式不正确！无法解析。")
             return {}
 
+# 🛑 【定义全品类超级敏感词库 - 彻底实现纯净版】
+NSFW_KEYWORDS = ['🔞', '色播', 'md', '福利', '三级',  '爆料', '麻豆', '蜜桃', '糖心', '日本女优', '日本女友', '成人']
+
+def is_nsfw_content(name_str, key_str=""):
+    """安全过滤判定：无论是名字还是 key 包含关键字，一律枪毙"""
+    name_lower = str(name_str).lower()
+    key_lower = str(key_str).lower()
+    for kw in NSFW_KEYWORDS:
+        if kw in name_lower or kw in key_lower:
+            return True
+    return False
+
 json_cnb = load_json_safe(cnb_path)
 json_haitun = load_json_safe(haitun_path)
 
@@ -244,18 +259,19 @@ json_cnb["sites"] = clean_upstream_sites + MY_CUSTOM_SITES
 custom_live_names = {live.get("name") for live in MY_CUSTOM_LIVES if live.get("name")}
 base_lives = haitun_lives + cnb_lives
 
+# 对公共直播源底包执行严格的 🔞 级清洗
 clean_base_lives = [
     live for live in base_lives 
     if live.get("name") not in custom_live_names 
-    and "日本女优" not in live.get("name", "") 
-    and "日本女友" not in live.get("name", "")
+    and not is_nsfw_content(live.get("name", ""), live.get("name", ""))
 ]
 
+# 对手工直播加线区执行严格的 🔞 级清洗
 inserted_count = 0 
 for custom_live in MY_CUSTOM_LIVES:
     live_name = custom_live.get("name", "")
-    if "🔞" in live_name:
-        print(f"🛡️ 【绿色警戒拦截】已强行剔除包含 🔞 敏感词的手工线: {live_name}")
+    if is_nsfw_content(live_name):
+        print(f"🛡️ 【绿色警戒拦截】已强行剔除包含敏感词的手工直播线: {live_name}")
     else:
         insert_idx = 5 + inserted_count
         if len(clean_base_lives) >= insert_idx:
@@ -351,6 +367,13 @@ try:
             clean_lives = []
             for live in ordered_obj["lives"]:
                 if live and isinstance(live, dict):
+                    # 对最里层的直播频道组再次过滤，确保万无一失
+                    filtered_channels = []
+                    for ch in live.get("channels", []):
+                        if not is_nsfw_content(ch.get("name", "")):
+                            filtered_channels.append(ch)
+                    live["channels"] = filtered_channels
+                    
                     if not live.get("ua") or live.get("ua") == "okhttp":
                         live["ua"] = "okhttp/5.3.2"
                     clean_lives.append(live)
@@ -395,13 +418,12 @@ try:
                 if "jar" in site:
                     site.pop("jar")
 
-            is_guazi = "瓜子" in raw_name or "GZ" == s_key
-            is_nsfw = False if is_guazi else ("🔞" in raw_name or "色播" in raw_name or "av" in s_key.lower() or "瓜" in raw_name or "爆料" in raw_name or "chat" in raw_name.lower() or "cam" in raw_name.lower() or "panda" in raw_name.lower() or "video" in raw_name.lower() or "md" in s_key.lower() or "福利" in raw_name or "有三级片" in raw_name)
-            is_target_rebo_main = (s_key == "热播影视")
-
-            if is_nsfw:
+            # 对点播线路执行深度大清洗
+            if is_nsfw_content(raw_name, s_key):
                 print(f"🛡️ 【绿色安全阻断】已从站点列表中强行剔除包含敏感词的线路: {raw_name}")
                 continue
+
+            is_target_rebo_main = (s_key == "热播影视")
 
             if is_target_rebo_main:
                 site["name"] = "热播 • APP｜此接口非原创，合并自海豚佬 and 鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"
@@ -479,7 +501,7 @@ try:
         print(f"⚠️ 提示：美化与智能重排阶段跳过，原因: {inner_e}")
 
     # ====================================================================
-    # 🎯 【超高精度对比：新旧 JSON 最终文件的 Sites 与 Lives 精准中文名录对比】
+    # 🎯 【超高精度对比与推送板块】
     # ====================================================================
     try:
         old_sites_names, old_lives_names = set(), set()
@@ -493,21 +515,17 @@ try:
                     old_sites_names = {s.get("name", "").strip() for s in old_data.get("sites", []) if s.get("name")}
                     old_lives_names = {l.get("name", "").strip() for l in old_data.get("lives", []) if l.get("name")}
 
-        # 提取本次全新生成的中文线路名录
         new_sites_names = {s.get("name", "").strip() for s in ordered_obj.get("sites", []) if s.get("name")}
         new_lives_names = {l.get("name", "").strip() for l in ordered_obj.get("lives", []) if l.get("name")}
 
-        # 计算并分离名录真正的中文变动
         added_sites = sorted(list(new_sites_names - old_sites_names))
         deleted_sites = sorted(list(old_sites_names - new_sites_names))
         added_lives = sorted(list(new_lives_names - old_lives_names))
         deleted_lives = sorted(list(old_lives_names - new_lives_names))
 
-        # 只有在产生真实变动时，才组装和派发高级排版消息
         if added_sites or deleted_sites or added_lives or deleted_lives:
             msg_lines = ["📝 *【 变动明细预览 】*", "📊 *━━━━━━━━━━━━━━━*"]
             
-            # 点播线变动板块
             if added_sites or deleted_sites:
                 msg_lines.append("📺 *【点播线路变动】*")
                 if added_sites:
@@ -519,7 +537,6 @@ try:
                     msg_lines.extend([f"🔴 {name}" for name in deleted_sites])
                 msg_lines.append("📊 *━━━━━━━━━━━━━━━*")
                 
-            # 直播线变动板块
             if added_lives or deleted_lives:
                 if len(msg_lines) > 2: msg_lines.append("")
                 msg_lines.append("📡 *【直播源站变动】*")
@@ -532,27 +549,24 @@ try:
                     msg_lines.extend([f"🔴 {name}" for name in deleted_lives])
                 msg_lines.append("📊 *━━━━━━━━━━━━━━━*")
 
-            # 读取 GitHub 环境变量，交由 Python 原生执行直发
             tg_token = os.getenv("TG_TOKEN")
             tg_chat_id = os.getenv("TG_CHAT_ID")
             
             if tg_token and tg_chat_id:
                 current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
-            
                 detail_msg = "\n".join(msg_lines)
                 
-                # 🛠️ 动态拼接国内加速站与当前生成的最新文件名
-                sub_url = f"{GH_PROXY}{GITHUB_REPO_URL}{output_filename}"
+                # 🛠️ 优雅精准拼接方案：前缀开关(有值则用) + GitHub标准Raw无损直链路径
+                raw_github_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/refs/heads/{GITHUB_BRANCH}/datas/{output_filename}"
+                sub_url = f"{GH_PROXY}{raw_github_url}"
                 
                 full_msg = f"🔔 *老杨TV 纯净版接口变更明细通知* 🔔\n\n"
                 full_msg += f"📅 *更新时间*：{current_time} (北京时间)\n"
                 full_msg += f"🚀 *变动说明*：检测到上游数据源更新或手工区线路调整，新接口配置已全自动编译上链！\n\n"
                 full_msg += f"{detail_msg}\n\n"
-                # ✨ 新增订阅链接推送行，其中链接部分使用单反引号包裹，以支持在 Telegram 里点击自动复制
                 full_msg += f"🔗 【 订阅链接 】 (点击即可自动复制)：\n`{sub_url}`\n\n"
                 full_msg += f"👑 纯净版链接已在后台无缝更新，更新接口即可，若电视端遇到断流请尝试重启软件或及时前往频道（@huliys9）获取当前最新密码锁！"
 
-                # 🚀 采用高稳定的原生库发射通知，零格式转义隐患，秒速直连
                 url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
                 data = urllib.parse.urlencode({"chat_id": tg_chat_id, "parse_mode": "Markdown", "text": full_msg}).encode("utf-8")
                 req = urllib.request.Request(url, data=data)
@@ -570,7 +584,6 @@ try:
     except Exception as diff_err:
         print(f"⚠️ 对比变动异常: {diff_err}")
 
-    # 安全地写出最新编译文件与跟踪器
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(ordered_obj, f, ensure_ascii=False, indent=4)
         
