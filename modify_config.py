@@ -16,6 +16,12 @@ lock_file_path = 'datas/控制开关.txt'
 tracker_path = 'datas/最新接口文件名.txt'
 
 # ====================================================================
+# 🌐 【新增：国内 GitHub 加速代理配置】
+# 可随时修改此变量，末尾需保留斜杠 “/”，留空 "" 则不使用代理
+# ====================================================================
+GITHUB_PROXY = "https://gh-proxy.org/"
+
+# ====================================================================
 # ✍️ 【通道一：老杨专属点播手工加线区】
 # 提示：单独加点播爬虫线贴在这里，如果上游有同 key 线路，脚本会自动蒸发上游、以此处为准。
 # ====================================================================
@@ -348,53 +354,44 @@ try:
                     clean_lives.append(live)
             ordered_obj["lives"] = clean_lives
 
-        block_1_rebo = []         
-        block_2_yingshi = []      
-        block_3_duanju = []       
-        block_4_dongman = []      
-        block_5_cili = []         
-        block_6_tiyu = []         
-        block_7_shaoer = []       
-        block_8_yinyue = []       
-        block_9_fuli = []         
-
+        block_1_rebo = []
+        block_2_yingshi = []
+        block_3_duanju = []
+        block_4_dongman = []
+        block_5_cili = []
+        block_6_tiyu = []
+        block_7_shaoer = []
+        block_8_yinyue = []
+        block_9_fuli = []
         tg_tail_count = 0
         for site in ordered_obj.get("sites", []):
-            if "name" not in site:
-                continue
-                
+            if "name" not in site: continue
             raw_name = site["name"]
             s_key = site.get("key", "")
             s_genre = site.get("genre", "")
             s_api = site.get("api", "")
-
-            for char in ['丨', '┃', ' ']:
-                raw_name = raw_name.strip(char)
+            for char in ['丨', '┃', ' ']: raw_name = raw_name.strip(char)
             raw_name = re.sub(r'\s+', ' ', raw_name)
-            
             if "｜Tg：@huliys9" in raw_name:
                 tg_tail_count += 1
                 if tg_tail_count > 5: raw_name = raw_name.replace("｜Tg：@huliys9", "").strip()
             elif "｜Tg:@huliys9" in raw_name:
                 tg_tail_count += 1
                 if tg_tail_count > 5: raw_name = raw_name.replace("｜Tg:@huliys9", "").strip()
-
-            if "ext" in site and site["ext"] == {}:
-                site["ext"] = ""
-
+            if "ext" in site and site["ext"] == {}: site["ext"] = ""
             if isinstance(s_api, str) and "PanWebShare" in s_api:
                 site["api"] = "csp_PanWebShare"
-                if "jar" in site:
-                    site.pop("jar")
-
+                if "jar" in site: site.pop("jar")
             is_guazi = "瓜子" in raw_name or "GZ" == s_key
+            
+            # 【绿色线核心安全剔除逻辑，严禁改动】
             is_nsfw = False if is_guazi else ("🔞" in raw_name or "色播" in raw_name or "av" in s_key.lower() or "瓜" in raw_name or "爆料" in raw_name or "chat" in raw_name.lower() or "cam" in raw_name.lower() or "panda" in raw_name.lower() or "video" in raw_name.lower() or "md" in s_key.lower() or "福利" in raw_name or "有三级片" in raw_name)
             is_target_rebo_main = (s_key == "热播影视")
-
+            
             if is_nsfw:
                 print(f"🛡️ 【绿色安全阻断】已从站点列表中强行剔除包含敏感词的线路: {raw_name}")
                 continue
-
+                
             if is_target_rebo_main:
                 site["name"] = "热播 • APP｜此接口非原创，合并自海豚佬 and 鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"
                 site["category"] = "综合"
@@ -426,8 +423,7 @@ try:
                 if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
                 site["name"] = raw_name
                 site["category"] = "网盘/磁力"
-                if "PanWebShare" in site.get("api", ""):
-                    site["changeable"] = 1
+                if "PanWebShare" in site.get("api", ""): site["changeable"] = 1
                 block_5_cili.append(site)
             elif "体育" in raw_name or "球" in raw_name or "直播" in raw_name:
                 if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
@@ -443,10 +439,7 @@ try:
             elif "音乐" in raw_name or "网易云" in raw_name or "听书" in raw_name or "唱会" in raw_name or "fm" in raw_name.lower() or "相声" in raw_name or "小品" in raw_name or "戏曲" in raw_name or "推送" in raw_name or "配置" in raw_name or "版本" in raw_name or "本地" in raw_name or "dj" in raw_name.lower() or "dj" in s_key.lower():
                 if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
                 site["name"] = raw_name
-                if "音乐" in raw_name or "网易云" in raw_name or "听书" in raw_name or "fm" in raw_name.lower() or "dj" in raw_name.lower() or "dj" in s_key.lower():
-                    site["category"] = "音乐"
-                else:
-                    site["category"] = "综合"
+                site["category"] = "音乐" if ("音乐" in raw_name or "网易云" in raw_name or "听书" in raw_name or "fm" in raw_name.lower() or "dj" in raw_name.lower() or "dj" in s_key.lower()) else "综合"
                 site["searchable"] = 0
                 block_8_yinyue.append(site)
             else:
@@ -459,22 +452,18 @@ try:
                 site["searchable"] = 1
 
         for site in block_2_yingshi:
-            if site.get("key") == "AQY":
-                site["name"] = "🦋 爱奇艺 ｜Tg：@huliys9"
+            if site.get("key") == "AQY": site["name"] = "🦋 爱奇艺 ｜Tg：@huliys9"
 
-        ordered_obj["sites"] = (
-            block_1_rebo + block_2_yingshi + block_3_duanju + block_4_dongman +
-            block_6_tiyu + block_7_shaoer + block_8_yinyue + block_5_cili + block_9_fuli
-        )
-        print(f"🚀 【重排结算】绿色精简版洗牌算法圆满完成！热播APP精准抢占开机推荐，网盘洗白降权，豆瓣安全归位。")
-    except Exception as inner_e:
-        print(f"⚠️ 提示：美化与智能重排阶段跳过，原因: {inner_e}")
+        ordered_obj["sites"] = (block_1_rebo + block_2_yingshi + block_3_duanju + block_4_dongman + block_6_tiyu + block_7_shaoer + block_8_yinyue + block_5_cili + block_9_fuli)
+    except Exception as merge_err:
+        print(f"⚠️ 合并分区异常: {merge_err}")
 
     # ====================================================================
-    # 🎯 【超高精度对比：新旧 JSON 最终文件的 Sites 与 Lives 精准中文名录对比】
+    # 🎯 【Python 直连高精度比对与 TG 推送机制】
     # ====================================================================
     try:
-        old_sites_names, old_lives_names = set(), set()
+        old_sites_names = set()
+        old_lives_names = set()
         if os.path.exists(tracker_path):
             with open(tracker_path, 'r', encoding='utf-8') as f:
                 old_file_name = f.read().strip()
@@ -485,57 +474,65 @@ try:
                     old_sites_names = {s.get("name", "").strip() for s in old_data.get("sites", []) if s.get("name")}
                     old_lives_names = {l.get("name", "").strip() for l in old_data.get("lives", []) if l.get("name")}
 
-        # 提取本次全新生成的中文线路名录
         new_sites_names = {s.get("name", "").strip() for s in ordered_obj.get("sites", []) if s.get("name")}
         new_lives_names = {l.get("name", "").strip() for l in ordered_obj.get("lives", []) if l.get("name")}
 
-        # 计算并分离名录真正的中文变动
         added_sites = sorted(list(new_sites_names - old_sites_names))
         deleted_sites = sorted(list(old_sites_names - new_sites_names))
         added_lives = sorted(list(new_lives_names - old_lives_names))
         deleted_lives = sorted(list(old_lives_names - new_lives_names))
 
-        # 只有在产生真实变动时，才组装和派发高级排版消息
         if added_sites or deleted_sites or added_lives or deleted_lives:
-            msg_lines = ["📝 *【 变动明细预览 】*", "📊 *━━━━━━━━━━━━━━━*"]
-            
-            # 点播线变动板块
+            msg_lines = [
+                "📝 *【 变动明细预览 】*",
+                "📊 *━━━━━━━━━━━━━━━*"
+            ]
             if added_sites or deleted_sites:
                 msg_lines.append("📺 *【点播线路变动】*")
                 if added_sites:
                     msg_lines.append("➕ *新增点播*：")
-                    msg_lines.extend([f"🟢 {name}" for name in added_sites])
+                    for name in added_sites: msg_lines.append(f"{name}")
                 if deleted_sites:
                     if added_sites: msg_lines.append("")
                     msg_lines.append("➖ *剔除点播*：")
-                    msg_lines.extend([f"🔴 {name}" for name in deleted_sites])
+                    for name in deleted_sites: msg_lines.append(f"{name}")
                 msg_lines.append("📊 *━━━━━━━━━━━━━━━*")
-                
-            # 直播线变动板块
             if added_lives or deleted_lives:
                 if len(msg_lines) > 2: msg_lines.append("")
                 msg_lines.append("📡 *【直播源站变动】*")
                 if added_lives:
                     msg_lines.append("➕ *新增直播*：")
-                    msg_lines.extend([f"🟢 {name}" for name in added_lives])
+                    for name in added_lives: msg_lines.append(f"{name}")
                 if deleted_lives:
                     if added_lives: msg_lines.append("")
                     msg_lines.append("➖ *剔除直播*：")
-                    msg_lines.extend([f"🔴 {name}" for name in deleted_lives])
+                    for name in deleted_lives: msg_lines.append(f"{name}")
                 msg_lines.append("📊 *━━━━━━━━━━━━━━━*")
 
-            # 读取 GitHub 环境变量，交由 Python 原生执行直发
             tg_token = os.getenv("TG_TOKEN")
             tg_chat_id = os.getenv("TG_CHAT_ID")
-            
             if tg_token and tg_chat_id:
                 current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                 detail_msg = "\n".join(msg_lines)
                 
+                # ------------------------------------------------------------------
+                # 🔗 【核心新增：自适应动态生成订阅链接逻辑】
+                # ------------------------------------------------------------------
+                repo_info = os.getenv("GITHUB_REPOSITORY", "GodLike631/test")
+                branch_info = os.getenv("GITHUB_REF_NAME", "main")
+                
+                raw_url = f"https://raw.githubusercontent.com/{repo_info}/{branch_info}/datas/{output_filename}"
+                full_sub_url = f"{GITHUB_PROXY}{raw_url}" if GITHUB_PROXY else raw_url
+                # ------------------------------------------------------------------
+
                 full_msg = f"🔔 *老杨TV 纯净版接口变更明细通知* 🔔\n\n"
                 full_msg += f"📅 *更新时间*：{current_time} (北京时间)\n"
                 full_msg += f"🚀 *变动说明*：检测到上游数据源更新或手工区线路调整，新接口配置已全自动编译上链！\n\n"
                 full_msg += f"{detail_msg}\n\n"
+                
+                # 订阅链接注入到最后一句话的前面（反引号包裹支持点击复制）
+                full_msg += f"🔗 *【 订阅链接 】 (点击即可自动复制)*：\n`{full_sub_url}`\n\n"
+                
                 full_msg += f"👑 纯净版链接已在后台无缝更新，更新接口即可，若电视端遇到断流请尝试重启软件或及时前往频道（@huliys9）获取当前最新密码锁！"
 
                 # 🚀 采用高稳定的原生库发射通知，零格式转义隐患，秒速直连
@@ -561,10 +558,10 @@ try:
         
     with open(tracker_path, 'w', encoding='utf-8') as f:
         f.write(output_filename)
-    print(f"🎉 纯净版接口编译并保存成功：{output_path}")
-
+        
+    print(f"🎉 编译写出完成: {output_path}")
 except Exception as e:
-    print(f"❌ 严重错误：最后的本地渲染失败: {e}")
+    print(f"❌ 运行失败: {e}")
 
 if not os.path.exists(lock_file_path) or "-" not in (open(lock_file_path, 'r', encoding='utf-8').read() if os.path.exists(lock_file_path) else ""):
     with open(lock_file_path, 'w', encoding='utf-8') as f:
