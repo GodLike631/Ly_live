@@ -15,11 +15,6 @@ import urllib.parse
 # 1. 国内加速前缀（如果不想用任何加速，直接留空 "" 即可。末尾请保留斜杠）
 GH_PROXY = "https://gh-proxy.org/"
 
-# 2. 您的 GitHub 用户名和仓库名（用来自动生成完美的订阅直链）
-GITHUB_USER = "GodLike631"      # 填入您的 GitHub 用户名
-GITHUB_REPO = "Ly_live"           # 填入您的 仓库名称
-GITHUB_BRANCH = "main"          # 填入您的 分支名（默认 main）
-
 # ====================================================================
 # 📁 【文件路径声明】
 # ====================================================================
@@ -342,7 +337,7 @@ try:
 
         if "rules" in ordered_obj and isinstance(ordered_obj["rules"], list):
             custom_js_rules = [
-                "console.log('老楊TV高級WebView攔截器啟動');",
+                "console.log('老楊TV高級WebView攔截器啟ò');",
                 "window.addEventListener('DOMContentLoaded', function() {",
                 "   document.querySelectorAll('video').forEach(v => { v.muted = true; v.play().catch(e=>{}); });",
                 "   Function.prototype.__constructor__ = Function.prototype.constructor;",
@@ -556,9 +551,18 @@ try:
                 current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                 detail_msg = "\n".join(msg_lines)
                 
-                # 🛠️ 优雅精准拼接方案：前缀开关(有值则用) + GitHub标准Raw无损直链路径
-                raw_github_url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/refs/heads/{GITHUB_BRANCH}/datas/{output_filename}"
-                sub_url = f"{GH_PROXY}{raw_github_url}"
+                # ------------------------------------------------------------------
+                # 🔗 【自适应升级：动态生成订阅链接逻辑】
+                # 优先读取 GitHub Actions 的系统变量，读取不到则使用 test 默认值
+                # ------------------------------------------------------------------
+                repo_info = os.getenv("GITHUB_REPOSITORY", "GodLike631/Ly_live")
+                branch_info = os.getenv("GITHUB_REF_NAME", "main")
+                
+                # 拼接完整的原始 GitHub 路径
+                raw_github_url = f"https://raw.githubusercontent.com/{repo_info}/{branch_info}/datas/{output_filename}"
+                # 如果配置了加速，则在前方拼接加速前缀
+                sub_url = f"{GH_PROXY}{raw_github_url}" if GH_PROXY else raw_github_url
+                # ------------------------------------------------------------------
                 
                 full_msg = f"🔔 *老杨TV 纯净版接口变更明细通知* 🔔\n\n"
                 full_msg += f"📅 *更新时间*：{current_time} (北京时间)\n"
