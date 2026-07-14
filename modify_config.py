@@ -149,7 +149,6 @@ if is_reset_day and saved_month != current_month:
     current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=3))
     with open(lock_file_path, 'w', encoding='utf-8') as f:
         f.write(f"{current_month}-{current_token}")
-    print(f"⏰ 生成本月新密锁: {current_token}")
 elif is_reset_day and saved_month == current_month:
     current_token = saved_code
 else:
@@ -236,11 +235,12 @@ clean_base_lives = [
     and "日本女友" not in live.get("name", "")
 ]
 
+# 【安全关卡一：严防死守手工加载线残留 🔞】
 inserted_count = 0 
 for custom_live in MY_CUSTOM_LIVES:
     live_name = custom_live.get("name", "")
-    if "🔞" in live_name:
-        print(f"🛡️ 剔除敏感手工线: {live_name}")
+    if "🔞" in live_name or "福利" in live_name or "色播" in live_name or "蜜桃" in live_name:
+        print(f"🛡️ 剔除手工敏感直播线: {live_name}")
     else:
         insert_idx = 5 + inserted_count
         if len(clean_base_lives) >= insert_idx:
@@ -272,7 +272,7 @@ for src, dst in path_replacements.items():
     final_json_text = final_json_text.replace(src, dst)
 
 # ====================================================================
-# 🧼 【彻底净化：重构纯绿版全局公告，洗净所有敏感词和群号】
+# 🧼 【净化二：强制重写全局公告区，剥离任何不良内容】
 # ====================================================================
 thanks_warning = "\n\n👑如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）获取当前最新密码锁！"
 welcome_notice = "👑 欢迎使用【老杨TV粉丝专属缝合纯净版】！本接口由老杨TV结合优质核心资源缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）获取当前最新密码锁！"
@@ -321,14 +321,37 @@ try:
             js_injection_rule = {"name": "老楊TV·雲端高級去广告JS注入", "hosts": ad_hosts, "script": custom_js_rules}
             ordered_obj["rules"] = [js_injection_rule] + [r for r in current_rules if r.get("name") != "老楊TV·雲端高級去广告JS注入"]
 
+        # ====================================================================
+        # 🧼 【净化三：双重熔断级直播分类深层净化】
+        # ====================================================================
         if "lives" in ordered_obj and isinstance(ordered_obj["lives"], list):
             clean_lives = []
             for live in ordered_obj["lives"]:
                 if live and isinstance(live, dict):
-                    if not live.get("ua") or live.get("ua") == "okhttp": live["ua"] = "okhttp/5.3.2"
-                    clean_lives.append(live)
+                    g_name = live.get("group", "")
+                    # 如果直播分类名字含有敏感词，整个分类直接抹除
+                    if any(bad in g_name for bad in ["🔞", "福利", "色播", "成人", "密桃", "AV", "av", "三级"]):
+                        print(f"🛡️ 强行熔断并剔除敏感直播组: {g_name}")
+                        continue
+                    
+                    # 对分类底下的每一个频道进行深度清洗
+                    clean_channels = []
+                    for ch in live.get("channels", []):
+                        ch_name = ch.get("name", "")
+                        if not any(bad in ch_name for bad in ["🔞", "福利", "色播", "成人", "密桃", "AV", "av", "三级"]):
+                            clean_channels.append(ch)
+                        else:
+                            print(f"🛡️ 剔除敏感直播频道: {ch_name}")
+                    
+                    if clean_channels:
+                        live["channels"] = clean_channels
+                        if not live.get("ua") or live.get("ua") == "okhttp": live["ua"] = "okhttp/5.3.2"
+                        clean_lives.append(live)
             ordered_obj["lives"] = clean_lives
 
+        # ====================================================================
+        # 🧼 【净化四：全方位无死角点播分类净化】
+        # ====================================================================
         block_1_rebo, block_2_yingshi, block_3_duanju, block_4_dongman, block_5_cili, block_6_tiyu, block_7_shaoer, block_8_yinyue = [], [], [], [], [], [], [], []
         tg_tail_count = 0
         for site in ordered_obj.get("sites", []):
@@ -347,12 +370,20 @@ try:
             if isinstance(s_api, str) and "PanWebShare" in s_api:
                 site["api"] = "csp_PanWebShare"
                 if "jar" in site: site.pop("jar")
+            
             is_guazi = "瓜子" in raw_name or "GZ" == s_key
             
-            is_nsfw = False if is_guazi else ("🔞" in raw_name or "色播" in raw_name or "av" in s_key.lower() or "瓜" in raw_name or "爆料" in raw_name or "chat" in raw_name.lower() or "cam" in raw_name.lower() or "panda" in raw_name.lower() or "video" in raw_name.lower() or "md" in s_key.lower() or "福利" in raw_name or "有三级片" in raw_name)
+            # 【多重黑名单库联防拦截机制】
+            is_nsfw = False if is_guazi else (
+                "🔞" in raw_name or "色播" in raw_name or "福利" in raw_name or "有三级片" in raw_name or
+                "av" in s_key.lower() or "瓜" in raw_name or "爆料" in raw_name or "三级" in raw_name or
+                "chat" in raw_name.lower() or "cam" in raw_name.lower() or "panda" in raw_name.lower() or 
+                "video" in raw_name.lower() or "md" in s_key.lower() or "成人" in raw_name or "密桃" in raw_name
+            )
             is_target_rebo_main = (s_key == "热播影视")
             
             if is_nsfw:
+                print(f"🛡️ 深度拦截净化点播线路: {raw_name}")
                 continue
                 
             if is_target_rebo_main:
@@ -416,6 +447,7 @@ try:
         for site in block_2_yingshi:
             if site.get("key") == "AQY": site["name"] = "🦋 爱奇艺 ｜Tg：@huliys9"
 
+        # 【结构性清理】完全移除了对福利分区容器的加载拼接
         ordered_obj["sites"] = (block_1_rebo + block_2_yingshi + block_3_duanju + block_4_dongman + block_6_tiyu + block_7_shaoer + block_8_yinyue + block_5_cili)
     except Exception as merge_err:
         print(f"⚠️ 合并分区异常: {merge_err}")
@@ -484,7 +516,7 @@ try:
                 full_msg += f"{detail_msg}\n\n"
                 
                 full_msg += f"🔗 *【 订阅链接 】 (点击即可自动复制)*：\n`{full_sub_url}`\n\n"
-                full_msg += f"👑 全量版连接已在后台无缝更新，更新接口即可，若电视端遇到断流请尝试重启软件或及时前往频道（@huliys9）获取当前最新密码锁！"
+                full_msg += f"👑 纯净版链接已在后台无缝更新，更新接口即可，若电视端遇到断流请尝试重启软件或及时前往频道（@huliys9）获取当前最新密码锁！"
 
                 url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
                 data = urllib.parse.urlencode({"chat_id": tg_chat_id, "parse_mode": "Markdown", "text": full_msg}).encode("utf-8")
