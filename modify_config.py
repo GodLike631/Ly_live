@@ -17,7 +17,7 @@ GH_PROXY = "https://gh-proxy.org/"
 
 # 2. 您的 GitHub 用户名和仓库名（用来自动生成完美的订阅直链）
 GITHUB_USER = "GodLike631"      # 填入您的 GitHub 用户名
-GITHUB_REPO = "Ly_18"           # 填入您的 仓库名称
+GITHUB_REPO = "Ly_live"           # 填入您的 仓库名称
 GITHUB_BRANCH = "main"          # 填入您的 分支名（默认 main）
 
 # ====================================================================
