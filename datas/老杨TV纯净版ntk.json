@@ -53,6 +53,17 @@
             "searchable": 1
         },
         {
+            "spider": "./tvbox.jar",
+            "key": "hajim-腾讯备",
+            "name": "🦋 腾讯视频备用｜Tg：@huliys9",
+            "type": 3,
+            "api": "https://ghfast.top/https://raw.githubusercontent.com/IY-CPU/IY/main/lib/drpy2.min.js",
+            "searchable": 1,
+            "changeable": 1,
+            "ext": "https://fastlink.cokey.xyz/f/1MOEc5/%E8%85%BE%E8%85%BE.js",
+            "category": "综合"
+        },
+        {
             "key": "txvm",
             "name": "🦋 腾讯视频.py",
             "type": 3,
@@ -71,7 +82,7 @@
         },
         {
             "key": "youtube",
-            "name": "🦋 油管,py",
+            "name": "🦋 油管.py",
             "type": 3,
             "api": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/py/油管.py",
             "category": "综合",
@@ -82,6 +93,22 @@
             "name": "🦋 芒果TV.py",
             "type": 3,
             "api": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/py/芒果TV.py",
+            "category": "综合",
+            "searchable": 1
+        },
+        {
+            "key": "ddvm",
+            "name": "🦋 低端影视.py",
+            "type": 3,
+            "api": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/py/低端影视.py",
+            "category": "综合",
+            "searchable": 1
+        },
+        {
+            "key": "cbh",
+            "name": "🦋 茶杯狐.py(关梯)",
+            "type": 3,
+            "api": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/py/茶杯狐.py",
             "category": "综合",
             "searchable": 1
         },
@@ -1756,17 +1783,6 @@
             "filterable": 0,
             "changeable": 0,
             "category": "综合"
-        },
-        {
-            "spider": "./tvbox.jar",
-            "key": "hajim-腾讯备",
-            "name": "🦋 腾讯4K｜Tg：@huliys9",
-            "type": 3,
-            "api": "https://ghfast.top/https://raw.githubusercontent.com/IY-CPU/IY/main/lib/drpy2.min.js",
-            "searchable": 1,
-            "changeable": 1,
-            "ext": "https://fastlink.cokey.xyz/f/1MOEc5/%E8%85%BE%E8%85%BE.js",
-            "category": "网盘/磁力"
         },
         {
             "key": "芒芒",
