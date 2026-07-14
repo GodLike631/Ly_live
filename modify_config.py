@@ -5,6 +5,8 @@ import string
 import glob
 import datetime
 import json
+import urllib.request
+import urllib.parse
 
 cnb_path = 'datas/cnb.json'
 haitun_path = 'datas/haitun.json'
@@ -124,7 +126,7 @@ MY_CUSTOM_LIVES = [
 ]
 
 # ====================================================================
-# ⏰ 【每月 1 号自动大洗牌与控制开关自动生成逻辑】 (原汁原味保留)
+# ⏰ 【每月 1 号自动大洗牌与控制开关自动生成逻辑】
 # ====================================================================
 today = datetime.datetime.now()
 current_month = str(today.month) 
@@ -167,7 +169,7 @@ output_path = f"datas/{output_filename}"
 print(f"🎯 最终结算 -> 目标输出：{output_filename}")
 
 # ====================================================================
-# 🛡️ 【金蝉脱壳：纯净版过期旧线自动全文字大轰炸】 (原汁原味保留)
+# 🛡️ 【金蝉脱壳：纯净版过期旧线自动全文字大轰炸】
 # ====================================================================
 old_configs = glob.glob('datas/老杨TV纯净版*.json') + glob.glob('datas/老杨TV*.json')
 for old_file in old_configs:
@@ -196,7 +198,7 @@ for garbage in glob.glob('datas/config_*.json'):
 
 
 # ====================================================================
-# 🧠 【核心逻辑：正统 JSON 对象读取与合并逻辑】 (原汁原味保留)
+# 🧠 【核心逻辑：正统 JSON 对象读取与合并逻辑】
 # ====================================================================
 def load_json_safe(path):
     if not os.path.exists(path):
@@ -298,7 +300,7 @@ try:
             name = p.get("name", "")
             if name and name not in seen_names:
                 unique_parses.append(p)
-                seen_names.add(name)
+            seen_names.add(name)
         ordered_obj["parses"] = unique_parses
 
         if "doh" in ordered_obj and isinstance(ordered_obj["doh"], list):
@@ -385,7 +387,6 @@ try:
                 if "jar" in site:
                     site.pop("jar")
 
-            # 🛡️ 纯净版硬核物理清洗核心算法
             is_guazi = "瓜子" in raw_name or "GZ" == s_key
             is_nsfw = False if is_guazi else ("🔞" in raw_name or "色播" in raw_name or "av" in s_key.lower() or "瓜" in raw_name or "爆料" in raw_name or "chat" in raw_name.lower() or "cam" in raw_name.lower() or "panda" in raw_name.lower() or "video" in raw_name.lower() or "md" in s_key.lower() or "福利" in raw_name or "有三级片" in raw_name)
             is_target_rebo_main = (s_key == "热播影视")
@@ -461,7 +462,6 @@ try:
             if site.get("key") == "AQY":
                 site["name"] = "🦋 爱奇艺 ｜Tg：@huliys9"
 
-        # 🎯 纯净精简线：block_9_fuli 直接悬空留白，完成安全去敏感清洗
         ordered_obj["sites"] = (
             block_1_rebo + block_2_yingshi + block_3_duanju + block_4_dongman +
             block_6_tiyu + block_7_shaoer + block_8_yinyue + block_5_cili + block_9_fuli
@@ -470,13 +470,98 @@ try:
     except Exception as inner_e:
         print(f"⚠️ 提示：美化与智能重排阶段跳过，原因: {inner_e}")
 
+    # ====================================================================
+    # 🎯 【超高精度对比：新旧 JSON 最终文件的 Sites 与 Lives 精准中文名录对比】
+    # ====================================================================
+    try:
+        old_sites_names, old_lives_names = set(), set()
+        if os.path.exists(tracker_path):
+            with open(tracker_path, 'r', encoding='utf-8') as f:
+                old_file_name = f.read().strip()
+            old_file_path = f"datas/{old_file_name}"
+            if os.path.exists(old_file_path):
+                with open(old_file_path, 'r', encoding='utf-8') as f:
+                    old_data = json.load(f)
+                    old_sites_names = {s.get("name", "").strip() for s in old_data.get("sites", []) if s.get("name")}
+                    old_lives_names = {l.get("name", "").strip() for l in old_data.get("lives", []) if l.get("name")}
+
+        # 提取本次全新生成的中文线路名录
+        new_sites_names = {s.get("name", "").strip() for s in ordered_obj.get("sites", []) if s.get("name")}
+        new_lives_names = {l.get("name", "").strip() for l in ordered_obj.get("lives", []) if l.get("name")}
+
+        # 计算并分离名录真正的中文变动
+        added_sites = sorted(list(new_sites_names - old_sites_names))
+        deleted_sites = sorted(list(old_sites_names - new_sites_names))
+        added_lives = sorted(list(new_lives_names - old_lives_names))
+        deleted_lives = sorted(list(old_lives_names - new_lives_names))
+
+        # 只有在产生真实变动时，才组装和派发高级排版消息
+        if added_sites or deleted_sites or added_lives or deleted_lives:
+            msg_lines = ["📝 *【 变动明细预览 】*", "📊 *━━━━━━━━━━━━━━━*"]
+            
+            # 点播线变动板块
+            if added_sites or deleted_sites:
+                msg_lines.append("📺 *【点播线路变动】*")
+                if added_sites:
+                    msg_lines.append("➕ *新增点播*：")
+                    msg_lines.extend([f"🟢 {name}" for name in added_sites])
+                if deleted_sites:
+                    if added_sites: msg_lines.append("")
+                    msg_lines.append("➖ *剔除点播*：")
+                    msg_lines.extend([f"🔴 {name}" for name in deleted_sites])
+                msg_lines.append("📊 *━━━━━━━━━━━━━━━*")
+                
+            # 直播线变动板块
+            if added_lives or deleted_lives:
+                if len(msg_lines) > 2: msg_lines.append("")
+                msg_lines.append("📡 *【直播源站变动】*")
+                if added_lives:
+                    msg_lines.append("➕ *新增直播*：")
+                    msg_lines.extend([f"🟢 {name}" for name in added_lives])
+                if deleted_lives:
+                    if added_lives: msg_lines.append("")
+                    msg_lines.append("➖ *剔除直播*：")
+                    msg_lines.extend([f"🔴 {name}" for name in deleted_lives])
+                msg_lines.append("📊 *━━━━━━━━━━━━━━━*")
+
+            # 读取 GitHub 环境变量，交由 Python 原生执行直发
+            tg_token = os.getenv("TG_TOKEN")
+            tg_chat_id = os.getenv("TG_CHAT_ID")
+            
+            if tg_token and tg_chat_id:
+                current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+                detail_msg = "\n".join(msg_lines)
+                
+                full_msg = f"🔔 *老杨TV 纯净版接口变更明细通知* 🔔\n\n"
+                full_msg += f"📅 *更新时间*：{current_time} (北京时间)\n"
+                full_msg += f"🚀 *变动说明*：检测到上游数据源更新或手工区线路调整，新接口配置已全自动编译上链！\n\n"
+                full_msg += f"{detail_msg}\n\n"
+                full_msg += f"👑 纯净版链接已在后台无缝更新，更新接口即可，若电视端遇到断流请尝试重启软件或及时前往频道（@huliys9）获取当前最新密码锁！"
+
+                # 🚀 采用高稳定的原生库发射通知，零格式转义隐患，秒速直连
+                url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
+                data = urllib.parse.urlencode({"chat_id": tg_chat_id, "parse_mode": "Markdown", "text": full_msg}).encode("utf-8")
+                req = urllib.request.Request(url, data=data)
+                try:
+                    with urllib.request.urlopen(req, timeout=15) as response:
+                        print("🚀 Telegram 纯净版更新通知直发成功！")
+                except Exception as net_err:
+                    print(f"❌ Telegram 推送失败: {net_err}")
+            else:
+                print("⚠️ 提示：未检测到绑定的 TG_TOKEN 或 TG_CHAT_ID，跳过通知发送。")
+        else:
+            print("⏭️ 没有任何中文线路名录实际变动，智能拦截通知流程。")
+            
+    except Exception as diff_err:
+        print(f"⚠️ 对比变动异常: {diff_err}")
+
+    # 安全地写出最新编译文件与跟踪器
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(ordered_obj, f, ensure_ascii=False, indent=4)
         
     with open(tracker_path, 'w', encoding='utf-8') as f:
         f.write(output_filename)
-        
-    print(f"🎉 纯净版更新成功！配置已写出至: {output_path}")
+    print(f"🎉 纯净版接口编译并保存成功：{output_path}")
 
 except Exception as e:
     print(f"❌ 严重错误：最后的本地渲染失败: {e}")
