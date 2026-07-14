@@ -8,16 +8,27 @@ import json
 import urllib.request
 import urllib.parse
 
+# ====================================================================
+# ⚙️ 【用户自定义专属配置区】
+# 提示：在这里修改变量，后续所有逻辑和推送会自动同步生效，无需改动下方的核心代码。
+# ====================================================================
+# 1. 国内加速前缀（末尾请务必保留斜杠“/”）
+GH_PROXY = "https://gh-proxy.org/"
+
+# 2. 您的 GitHub 仓库数据存放直链路径（请将下方示例修改为您真正的 GitHub 仓库路径，末尾保留斜杠）
+# 例如: "https://raw.githubusercontent.com/您的用户名/您的仓库名/refs/heads/main/datas/"
+GITHUB_REPO_URL = "https://raw.githubusercontent.com/您的用户名/您的仓库名/refs/heads/main/datas/"
+
+# ====================================================================
+# 📁 【文件路径声明】
+# ====================================================================
 cnb_path = 'datas/cnb.json'
 haitun_path = 'datas/haitun.json'
-
-# 控制开关和追踪器的文件路径
 lock_file_path = 'datas/控制开关.txt'
 tracker_path = 'datas/最新接口文件名.txt'
 
 # ====================================================================
 # ✍️ 【通道一：老杨专属点播手工加线区】
-# 提示：单独加点播爬虫线贴在这里，如果上游有同 key 线路，脚本会自动蒸发上游、以此处为准。
 # ====================================================================
 MY_CUSTOM_SITES = [
     {
@@ -40,9 +51,6 @@ MY_CUSTOM_SITES = [
 
 # ====================================================================
 # 📺 【通道二：老杨专属直播手工加线区（从第 6 位开始正向依序后排）】
-# 提示：第一个手工源占第 6 位，第二个自动顺延排第 7 位！
-# 如果手工加的直播线路名字与上游重复，脚本会自动触发“特权锁”全自动蒸发上游同名源！
-# 🌟 特别规则：本线属于安全绿色线，若发现手工线包含“🔞”敏感标记，将强行剔除、不予加载。
 # ====================================================================
 MY_CUSTOM_LIVES = [
     {
@@ -308,7 +316,7 @@ try:
                 if doh_item.get("url", "").endswith("/dns-quer"):
                     doh_item["url"] = doh_item["url"] + "y"
             
-            ali_doh = {
+        ali_doh = {
                 "name": "AliDNS",
                 "url": "https://dns.alidns.com/dns-query",
                 "ips": ["223.5.5.5", "223.6.6.6"]
@@ -356,7 +364,7 @@ try:
         block_6_tiyu = []         
         block_7_shaoer = []       
         block_8_yinyue = []       
-        block_9_fuli = []         
+        block_9_fuli = []      
 
         tg_tail_count = 0
         for site in ordered_obj.get("sites", []):
@@ -530,18 +538,25 @@ try:
             
             if tg_token and tg_chat_id:
                 current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+            
                 detail_msg = "\n".join(msg_lines)
+                
+                # 🛠️ 动态拼接国内加速站与当前生成的最新文件名
+                sub_url = f"{GH_PROXY}{GITHUB_REPO_URL}{output_filename}"
                 
                 full_msg = f"🔔 *老杨TV 纯净版接口变更明细通知* 🔔\n\n"
                 full_msg += f"📅 *更新时间*：{current_time} (北京时间)\n"
                 full_msg += f"🚀 *变动说明*：检测到上游数据源更新或手工区线路调整，新接口配置已全自动编译上链！\n\n"
                 full_msg += f"{detail_msg}\n\n"
+                # ✨ 新增订阅链接推送行，其中链接部分使用单反引号包裹，以支持在 Telegram 里点击自动复制
+                full_msg += f"🔗 【 订阅链接 】 (点击即可自动复制)：\n`{sub_url}`\n\n"
                 full_msg += f"👑 纯净版链接已在后台无缝更新，更新接口即可，若电视端遇到断流请尝试重启软件或及时前往频道（@huliys9）获取当前最新密码锁！"
 
                 # 🚀 采用高稳定的原生库发射通知，零格式转义隐患，秒速直连
                 url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
                 data = urllib.parse.urlencode({"chat_id": tg_chat_id, "parse_mode": "Markdown", "text": full_msg}).encode("utf-8")
                 req = urllib.request.Request(url, data=data)
+ 
                 try:
                     with urllib.request.urlopen(req, timeout=15) as response:
                         print("🚀 Telegram 纯净版更新通知直发成功！")
