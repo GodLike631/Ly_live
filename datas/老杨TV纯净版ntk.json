@@ -2301,39 +2301,45 @@
             "type": 0,
             "playerType": 2,
             "ua": "okhttp/5.3.2",
-            "url": "https://raw.githubusercontent.com/fleung49/star/refs/heads/main/mit"
+            "url": "https://raw.githubusercontent.com/fleung49/star/refs/heads/main/mit",
+            "channels": []
         },
         {
             "name": "各大源合集 永久免费如有收费的都是骗子｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://gh-proxy.org/https://raw.githubusercontent.com/807080747/zv/refs/heads/main/sese.txt"
+            "url": "https://gh-proxy.org/https://raw.githubusercontent.com/807080747/zv/refs/heads/main/sese.txt",
+            "channels": []
         },
         {
             "name": "电视家｜Tg：@huliys9",
             "type": 0,
             "playerType": 2,
             "ua": "okhttp/5.3.2",
-            "url": "https://gh-proxy.org/https://github.com/bang359/dsj/raw/main/dsjcs.txt"
+            "url": "https://gh-proxy.org/https://github.com/bang359/dsj/raw/main/dsjcs.txt",
+            "channels": []
         },
         {
             "name": "地方直播｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/interface.txt"
+            "url": "https://ghfast.top/https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/interface.txt",
+            "channels": []
         },
         {
             "name": "地方直播2｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u"
+            "url": "https://raw.githubusercontent.com/Guovin/iptv-api/gd/output/ipv4/result.m3u",
+            "channels": []
         },
         {
             "name": "乡村电视 ｜Tg：@huliys9",
             "type": 0,
             "playerType": 2,
             "ua": "okhttp/5.3.2",
-            "url": "https://gh-proxy.com/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E4%B9%A1%E6%9D%91%E7%94%B5%E8%A7%86.txt"
+            "url": "https://gh-proxy.com/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E4%B9%A1%E6%9D%91%E7%94%B5%E8%A7%86.txt",
+            "channels": []
         },
         {
             "name": "锋云直播｜Tg：@huliys9",
@@ -2341,19 +2347,22 @@
             "url": "https://gh-proxy.org/https://raw.githubusercontent.com/807080747/zv/refs/heads/main/suale.txt",
             "ua": "okhttp/5.3.2",
             "timeout": 10,
-            "playerType": 2
+            "playerType": 2,
+            "channels": []
         },
         {
             "name": "最新电影｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/Ly_18/refs/heads/main/datas/%E6%9C%80%E6%96%B0%E7%94%B5%E5%BD%B1.m3u"
+            "url": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/Ly_18/refs/heads/main/datas/%E6%9C%80%E6%96%B0%E7%94%B5%E5%BD%B1.m3u",
+            "channels": []
         },
         {
             "name": "Kimentanm",
             "type": 0,
             "url": "https://ghfast.top/https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u",
             "playerType": 2,
+            "channels": [],
             "ua": "okhttp/5.3.2"
         },
         {
@@ -2361,25 +2370,29 @@
             "type": 0,
             "playerType": 2,
             "url": "https://ghfast.top/https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/interface.txt",
-            "ua": "bingcha/1.1 (mianfeifenxiang) "
+            "ua": "bingcha/1.1 (mianfeifenxiang) ",
+            "channels": []
         },
         {
             "name": "央卫TV｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "http://47.120.41.246:8025/vip/jar/zb.php"
+            "url": "http://47.120.41.246:8025/vip/jar/zb.php",
+            "channels": []
         },
         {
             "name": "超稳定流畅｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E8%B6%85%E7%A8%B3%E5%AE%9A%E6%B5%81%E7%95%85.txt"
+            "url": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E8%B6%85%E7%A8%B3%E5%AE%9A%E6%B5%81%E7%95%85.txt",
+            "channels": []
         },
         {
             "name": "咪咕｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://develop202.github.io/migu_video/interface.txt"
+            "url": "https://develop202.github.io/migu_video/interface.txt",
+            "channels": []
         },
         {
             "name": "Gather「IPTV」｜Tg：@huliys9",
@@ -2388,7 +2401,8 @@
             "epg": "https://material.yang-1989.xyz/epg.xml.gz",
             "ua": "okhttp/5.3.2",
             "timeout": 10,
-            "playerType": 2
+            "playerType": 2,
+            "channels": []
         },
         {
             "name": "Live「直播」｜Tg：@huliys9",
@@ -2396,7 +2410,8 @@
             "url": "https://live.yang-1989.eu.org/Live.m3u",
             "ua": "okhttp/5.3.2",
             "timeout": 10,
-            "playerType": 2
+            "playerType": 2,
+            "channels": []
         },
         {
             "name": "myTV「香港」1｜Tg：@huliys9",
@@ -2405,223 +2420,190 @@
             "epg": "https://material.yang-1989.xyz/epg.xml.gz",
             "ua": "okhttp/5.3.2",
             "timeout": 10,
-            "playerType": 2
+            "playerType": 2,
+            "channels": []
         },
         {
             "name": "薄荷直播｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://gh-proxy.org/https://raw.githubusercontent.com/wujiangliu/live-sources/refs/heads/main/bhmb.m3u"
+            "url": "https://gh-proxy.org/https://raw.githubusercontent.com/wujiangliu/live-sources/refs/heads/main/bhmb.m3u",
+            "channels": []
         },
         {
             "name": "全球直播｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://gh-proxy.org/https://raw.githubusercontent.com/wujiangliu/live-sources/refs/heads/main/%E5%85%A8%E7%90%83%E7%9B%B4%E6%92%AD.m3u"
+            "url": "https://gh-proxy.org/https://raw.githubusercontent.com/wujiangliu/live-sources/refs/heads/main/%E5%85%A8%E7%90%83%E7%9B%B4%E6%92%AD.m3u",
+            "channels": []
         },
         {
             "name": "咪咕直播｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "http://www.52top.com.cn:678/downloads/migu.txt"
+            "url": "http://www.52top.com.cn:678/downloads/migu.txt",
+            "channels": []
         },
         {
             "name": "iptv直播｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://wget.la/https://raw.githubusercontent.com/vinkerq/iptv-api/refs/heads/master/iptv.txt"
+            "url": "https://wget.la/https://raw.githubusercontent.com/vinkerq/iptv-api/refs/heads/master/iptv.txt",
+            "channels": []
         },
         {
             "name": "juli｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://files.catbox.moe/h3mb5a.txt"
+            "url": "https://files.catbox.moe/h3mb5a.txt",
+            "channels": []
         },
         {
             "name": "小新TV｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://d.kstore.dev/download/9565/小新TV.txt"
+            "url": "https://d.kstore.dev/download/9565/小新TV.txt",
+            "channels": []
         },
         {
             "name": "北美长城源｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://ha.msbot.dpdns.org/wall.php"
+            "url": "https://ha.msbot.dpdns.org/wall.php",
+            "channels": []
         },
         {
             "name": "台湾台｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://epg.pw/test_channels_taiwan.m3u"
+            "url": "https://epg.pw/test_channels_taiwan.m3u",
+            "channels": []
         },
         {
             "name": "体育台｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "http://82.156.243.185:33389/fwc.m3u"
+            "url": "http://82.156.243.185:33389/fwc.m3u",
+            "channels": []
         },
         {
             "name": "国际TV｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://raw.githubusercontent.com/xJEYDAin/iptv/main/output/all_merged.m3u"
+            "url": "https://raw.githubusercontent.com/xJEYDAin/iptv/main/output/all_merged.m3u",
+            "channels": []
         },
         {
             "name": "裤佬TV｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://gh-proxy.org/https://raw.githubusercontent.com/Jsnzkpg/Jsnzkpg/Jsnzkpg/Jsnzkpg1.m3u"
+            "url": "https://gh-proxy.org/https://raw.githubusercontent.com/Jsnzkpg/Jsnzkpg/Jsnzkpg/Jsnzkpg1.m3u",
+            "channels": []
         },
         {
             "name": "裤佬TV2｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://tv.tmxk.kdns.fr/ex64181y"
+            "url": "https://tv.tmxk.kdns.fr/ex64181y",
+            "channels": []
         },
         {
             "name": "live.m3u｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://live.445569.xyz/live.m3u"
+            "url": "https://live.445569.xyz/live.m3u",
+            "channels": []
         },
         {
             "name": "Gather｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://iptv.yang-1989.eu.org/m3u/Gather.m3u"
+            "url": "https://iptv.yang-1989.eu.org/m3u/Gather.m3u",
+            "channels": []
         },
         {
             "name": "Mytv｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://cdn.qd.je/live.m3u"
+            "url": "https://cdn.qd.je/live.m3u",
+            "channels": []
         },
         {
             "name": "新加坡(梯子)｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "http://xtvantsc.xyz/新加坡.m3u"
+            "url": "http://xtvantsc.xyz/新加坡.m3u",
+            "channels": []
         },
         {
             "name": "黄蚂蚁先锋推流源｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "http://ge.html-5.me//ii/黄蚂蚁先锋推流源.txt"
+            "url": "http://ge.html-5.me//ii/黄蚂蚁先锋推流源.txt",
+            "channels": []
         },
         {
             "name": "风云源｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "http://iptv.4666888.xyz/FYTV.txt"
-        },
-        {
-            "name": "易发源 有🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://gh-proxy.org/https://raw.githubusercontent.com/fafa002/yf2025/refs/heads/main/yiyifafa.txt"
-        },
-        {
-            "name": "俄罗斯源 有🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://ilook.epg.one/EDTZN7ANS84N86"
+            "url": "http://iptv.4666888.xyz/FYTV.txt",
+            "channels": []
         },
         {
             "name": "飞扬源｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://www.985pan.com/down.php/bf5e9607ff407fcdd71f63928ea5bc79.txt"
+            "url": "https://www.985pan.com/down.php/bf5e9607ff407fcdd71f63928ea5bc79.txt",
+            "channels": []
         },
         {
             "name": "港奥台国际｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "http://tv123.vvvv.ee/tv.m3u"
+            "url": "http://tv123.vvvv.ee/tv.m3u",
+            "channels": []
         },
         {
             "name": "中港台直播源｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://t.freetv.fun/m3u/playlist_all.txt"
+            "url": "https://t.freetv.fun/m3u/playlist_all.txt",
+            "channels": []
         },
         {
             "name": "4GTV(梯子台湾节点)720p｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/4gtv.txt"
+            "url": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/4gtv.txt",
+            "channels": []
         },
         {
             "name": "4GTV怡淳酒店(梯子台湾节点)720p｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "http://xtvantsc.xyz/4gtv.txt"
+            "url": "http://xtvantsc.xyz/4gtv.txt",
+            "channels": []
         },
         {
             "name": "4GTV(免梯子)1080p｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "http://4gtv.cnlive.club/4gtv.m3u"
+            "url": "http://4gtv.cnlive.club/4gtv.m3u",
+            "channels": []
         },
         {
             "name": "4GTV(梯子任何节点)1080p｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://ha.msbot.dpdns.org/4gtv_api.php"
-        },
-        {
-            "name": "安博(梯子)卡顿 有🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/安博.txt"
+            "url": "https://ha.msbot.dpdns.org/4gtv_api.php",
+            "channels": []
         },
         {
             "name": "jackTV(梯子)｜Tg：@huliys9",
             "type": 0,
             "ua": "okhttp/5.3.2",
-            "url": "https://php.946985.filegear-sg.me/jackTV.m3u"
-        },
-        {
-            "name": "午夜剧场(梯子)🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/午夜剧场.txt"
-        },
-        {
-            "name": "佬xxx视频资源🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/xxx视频资源.txt"
-        },
-        {
-            "name": "欧美大片直播🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "http://xtvantsc.xyz/欧美2160.m3u"
-        },
-        {
-            "name": "欧美主播直播🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://chaturbate.xvideos4.tk/api5.php?m3u&all"
-        },
-        {
-            "name": "亚洲主播直播🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://chaturbate.xvideos4.tk/api6.php?m3u"
-        },
-        {
-            "name": "EVILANGEL🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/EVILANGEL.m3u"
-        },
-        {
-            "name": "FC2-PPV1🔞｜Tg：@huliys9",
-            "type": 0,
-            "ua": "okhttp/5.3.2",
-            "url": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/fgrjk/refs/heads/main/FC2-PPV1.m3u"
+            "url": "https://php.946985.filegear-sg.me/jackTV.m3u",
+            "channels": []
         }
     ],
     "parses": [
