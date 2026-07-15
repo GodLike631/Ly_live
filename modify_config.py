@@ -141,6 +141,9 @@ is_reset_day = (today.day == 1)
 saved_month = ""
 saved_code = ""
 
+# 新增：新密码锁生成触发标记，默认关闭
+is_new_token_generated = False
+
 if os.path.exists(lock_file_path):
     with open(lock_file_path, 'r', encoding='utf-8') as f:
         content = f.read().strip()
@@ -154,6 +157,8 @@ if is_reset_day and saved_month != current_month:
     with open(lock_file_path, 'w', encoding='utf-8') as f:
         f.write(f"{current_month}-{current_token}")
     print(f"⏰ 【每月1号全新硬核洗牌】检测到进入新月份 {current_month} 月！已全自动抽签生成本月新密锁: {current_token}")
+    # 🎯 触发独立推送标记
+    is_new_token_generated = True
 elif is_reset_day and saved_month == current_month:
     current_token = saved_code
     print(f"🔒 【安全阀拦截】今日 1号已经是当月第二次运行，保持原暗号: {current_token}")
@@ -498,6 +503,35 @@ try:
     # ====================================================================
     # 🎯 【超高精度对比与推送板块】
     # ====================================================================
+    tg_token = os.getenv("TG_TOKEN")
+    tg_chat_id = os.getenv("TG_CHAT_ID")
+    repo_info = os.getenv("GITHUB_REPOSITORY", "GodLike631/Ly_live")
+    branch_info = os.getenv("GITHUB_REF_NAME", "main")
+    
+    raw_github_url = f"https://raw.githubusercontent.com/{repo_info}/{branch_info}/datas/{output_filename}"
+    sub_url = f"{GH_PROXY}{raw_github_url}" if GH_PROXY else raw_github_url
+    current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+
+    # ------------------------------------------------------------------
+    # 🌟 【新增核心功能：新密码专属推送通道（完全独立解耦）】
+    # ------------------------------------------------------------------
+    if is_new_token_generated and tg_token and tg_chat_id:
+        try:
+            pwd_msg = f"🔔 *老杨TV · 纯净版全新月份硬核密码锁发布* 🔔\n\n"
+            pwd_msg += f"📅 *生效时间*：{(datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime('%Y年%m月01日')} (北京时间)\n"
+            pwd_msg += f"🔑 *本月全新纯净版密锁*：`{current_token}`\n\n"
+            pwd_msg += f"🚀 *重要提示*：\n旧接口已全线开启【金蝉脱壳】大轰炸提示，原纯净版链接已彻底作废断流！\n\n"
+            pwd_msg += f"🔗 *最新纯净版订阅链接 (点击即可自动复制)*：\n`{sub_url}`\n\n"
+            pwd_msg += f"👑 纯净版连接已在后台全自动换锁，请及时更新电视端接口。若电视端遇到断流请尝试重启软件或前往频道（@huliys9）获取最新支持！"
+
+            pwd_url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
+            pwd_data = urllib.parse.urlencode({"chat_id": tg_chat_id, "parse_mode": "Markdown", "text": pwd_msg}).encode("utf-8")
+            pwd_req = urllib.request.Request(pwd_url, data=pwd_data)
+            with urllib.request.urlopen(pwd_req, timeout=15) as response:
+                print("🚀 [专属密码通道] 纯净版每月1号新密锁独立通知发送成功！")
+        except Exception as pwd_err:
+            print(f"❌ [专属密码通道] 纯净版发送通知失败: {pwd_err}")
+
     try:
         old_sites_names, old_lives_names = set(), set()
         if os.path.exists(tracker_path):
@@ -543,26 +577,9 @@ try:
                     msg_lines.append("➖ *剔除直播*：")
                     msg_lines.extend([f"🔴 {name}" for name in deleted_lives])
                 msg_lines.append("📊 *━━━━━━━━━━━━━━━*")
-
-            tg_token = os.getenv("TG_TOKEN")
-            tg_chat_id = os.getenv("TG_CHAT_ID")
             
             if tg_token and tg_chat_id:
-                current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                 detail_msg = "\n".join(msg_lines)
-                
-                # ------------------------------------------------------------------
-                # 🔗 【自适应升级：动态生成订阅链接逻辑】
-                # 优先读取 GitHub Actions 的系统变量，读取不到则使用 test 默认值
-                # ------------------------------------------------------------------
-                repo_info = os.getenv("GITHUB_REPOSITORY", "GodLike631/Ly_live")
-                branch_info = os.getenv("GITHUB_REF_NAME", "main")
-                
-                # 拼接完整的原始 GitHub 路径
-                raw_github_url = f"https://raw.githubusercontent.com/{repo_info}/{branch_info}/datas/{output_filename}"
-                # 如果配置了加速，则在前方拼接加速前缀
-                sub_url = f"{GH_PROXY}{raw_github_url}" if GH_PROXY else raw_github_url
-                # ------------------------------------------------------------------
                 
                 full_msg = f"🔔 *老杨TV 纯净版接口变更明细通知* 🔔\n\n"
                 full_msg += f"📅 *更新时间*：{current_time} (北京时间)\n"
