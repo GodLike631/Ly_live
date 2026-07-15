@@ -15,6 +15,12 @@ import urllib.parse
 # 1. 国内加速前缀（如果不想用任何加速，直接留空 "" 即可。末尾请保留斜杠）
 GH_PROXY = "https://gh-proxy.org/"
 
+# 🚫 【新增：自定义黑名单关键词过滤区】
+# 在下方列表中填入指定关键词（支持多个），脚本合并时会自动删除包含这些关键词的
+# 点播线路与直播源。如果不需要过滤，保持列表为空即可。
+# ====================================================================
+BLOCK_KEYWORDS = ["羊壳", "测试", "不可用"]
+
 # ====================================================================
 # 📁 【文件路径声明】
 # ====================================================================
@@ -254,6 +260,20 @@ combined_parses = json_haitun.get("parses", []) + json_cnb.get("parses", [])
 custom_keys = {site.get("key") for site in MY_CUSTOM_SITES if site.get("key")}
 upstream_sites = haitun_sites + cnb_sites
 clean_upstream_sites = [site for site in upstream_sites if site.get("key") not in custom_keys]
+
+# ------------------------------------------------------------------
+# 🎯 【过滤点播区核心注入】：从源头过滤包含指定黑名单关键词的点播线路
+# ------------------------------------------------------------------
+if BLOCK_KEYWORDS:
+    filtered_upstream_sites = []
+    for site in clean_upstream_sites:
+        s_name = site.get("name", "")
+        # 如果线路名称包含任何一个黑名单关键词（忽略大小写模糊比对），则剔除
+        if any(kw.lower() in s_name.lower() for kw in BLOCK_KEYWORDS if kw):
+            continue
+        filtered_upstream_sites.append(site)
+    clean_upstream_sites = filtered_upstream_sites
+
 json_cnb["sites"] = clean_upstream_sites + MY_CUSTOM_SITES
 
 custom_live_names = {live.get("name") for live in MY_CUSTOM_LIVES if live.get("name")}
@@ -266,10 +286,27 @@ clean_base_lives = [
     and not is_nsfw_content(live.get("name", ""), live.get("name", ""))
 ]
 
+# ------------------------------------------------------------------
+# 🎯 【过滤直播区核心注入】：同步过滤包含指定黑名单关键词的直播源
+# ------------------------------------------------------------------
+if BLOCK_KEYWORDS:
+    filtered_base_lives = []
+    for live in clean_base_lives:
+        l_name = live.get("name", "")
+        if any(kw.lower() in l_name.lower() for kw in BLOCK_KEYWORDS if kw):
+            continue
+        filtered_base_lives.append(live)
+    clean_base_lives = filtered_base_lives
+
 # 对手工直播加线区执行严格的 🔞 级清洗
 inserted_count = 0 
 for custom_live in MY_CUSTOM_LIVES:
     live_name = custom_live.get("name", "")
+    
+    # 手工定制区同样执行黑名单拦截
+    if BLOCK_KEYWORDS and any(kw.lower() in live_name.lower() for kw in BLOCK_KEYWORDS if kw):
+        continue
+        
     if is_nsfw_content(live_name):
         print(f"🛡️ 【绿色警戒拦截】已强行剔除包含敏感词的手工直播线: {live_name}")
     else:
@@ -522,7 +559,7 @@ try:
             pwd_msg += f"🔑 *本月全新纯净版密锁*：`{current_token}`\n\n"
             pwd_msg += f"🚀 *重要提示*：\n旧接口已全线开启【金蝉脱壳】大轰炸提示，原纯净版链接已彻底作废断流！\n\n"
             pwd_msg += f"🔗 *最新纯净版订阅链接 (点击即可自动复制)*：\n`{sub_url}`\n\n"
-            pwd_msg += f"👑 纯净版连接已在后台全自动换锁，请及时更新电视端接口。若电视端遇到断流请尝试重启软件或前往频道（@huliys9）获取最新支持！"
+            pwd_msg += f"👑 纯净版链接已在后台全自动换锁，请及时更新电视端接口。若电视端遇到断流请尝试重启软件或前往频道（@huliys9）获取最新支持！"
 
             pwd_url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
             pwd_data = urllib.parse.urlencode({"chat_id": tg_chat_id, "parse_mode": "Markdown", "text": pwd_msg}).encode("utf-8")
