@@ -147,7 +147,6 @@ is_reset_day = (today.day == 1)
 saved_month = ""
 saved_code = ""
 
-# 新增：新密码锁生成触发标记，默认关闭
 is_new_token_generated = False
 
 if os.path.exists(lock_file_path):
@@ -163,7 +162,6 @@ if is_reset_day and saved_month != current_month:
     with open(lock_file_path, 'w', encoding='utf-8') as f:
         f.write(f"{current_month}-{current_token}")
     print(f"⏰ 【每月1号全新硬核洗牌】检测到进入新月份 {current_month} 月！已全自动抽签生成本月新密锁: {current_token}")
-    # 🎯 触发独立推送标记
     is_new_token_generated = True
 elif is_reset_day and saved_month == current_month:
     current_token = saved_code
@@ -215,17 +213,58 @@ for garbage in glob.glob('datas/config_*.json'):
 
 
 # ====================================================================
-# 🧠 【核心逻辑：正统 JSON 对象读取与合并逻辑】
+# 🛡️ 【方案 B 核心升级：具备智能容灾和纯净版底包备份的 JSON 加载器】
 # ====================================================================
 def load_json_safe(path):
-    if not os.path.exists(path):
-        return {}
-    with open(path, 'r', encoding='utf-8') as f:
+    dir_name = os.path.dirname(path)
+    base_name = os.path.basename(path)
+    name_part, ext_part = os.path.splitext(base_name)
+    backup_path = os.path.join(dir_name, f"{name_part}_backup{ext_part}")
+
+    current_data = None
+    is_current_valid = False
+
+    # 1. 拦截并深度读取当前被 curl 覆写的源文件
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            try:
+                current_data = json.load(f)
+                if isinstance(current_data, dict) and ("sites" in current_data or "lives" in current_data or "parses" in current_data):
+                    is_current_valid = True
+                else:
+                    print(f"⚠️ 警告：{path} 虽是合法的 JSON，但缺少底包核心字段，判定为损坏坏源！")
+            except Exception:
+                print(f"⚠️ 警告：{path} 文件彻底损坏或内容为空，解析失败！")
+
+    # 2. 智能容灾流控判定
+    if is_current_valid:
+        # 状况良好 -> 赶紧刷新备份文件
         try:
-            return json.load(f)
-        except Exception as e:
-            print(f"❌ 错误：{path} JSON 格式不正确！无法解析。")
-            return {}
+            with open(backup_path, 'w', encoding='utf-8') as b_f:
+                json.dump(current_data, b_f, ensure_ascii=False, indent=4)
+            print(f"✅ 成功：{path} 安全指标通过，已同步刷新本地纯净版备份库。")
+        except Exception as backup_err:
+            print(f"🚨 本地备份写出失败: {backup_err}")
+        return current_data
+    else:
+        # 状况恶劣（上游失效改地址） -> 降级紧急抽调历史健康的纯净版老本
+        print(f"🚨 触发纯净版容灾机制：上游数据源 {path} 已失效！开启安全回滚降级...")
+        if os.path.exists(backup_path):
+            with open(backup_path, 'r', encoding='utf-8') as b_f:
+                try:
+                    backup_data = json.load(b_f)
+                    print(f"🥇 容灾成功！已成功载入历史健康的纯净版数据: {backup_path}")
+                    # 回写覆写坏源，保护下层组件不崩溃
+                    with open(path, 'w', encoding='utf-8') as f:
+                        json.dump(backup_data, f, ensure_ascii=False, indent=4)
+                    return backup_data
+                except Exception:
+                    print(f"❌ 严重错误：本地历史备份文件 {backup_path} 竟也发生了损坏！")
+        else:
+            print(f"❌ 严重错误：在本地安全区未检索到任何备份文件 {backup_path}！")
+        
+        return {}
+
 
 # 🛑 【定义全品类超级敏感词库 - 彻底实现纯净版】
 NSFW_KEYWORDS = ['🔞', '色播', 'md', '福利', '三级',  '爆料', '麻豆', '蜜桃', '糖心', '日本女优', '日本女友', '成人']
@@ -239,6 +278,7 @@ def is_nsfw_content(name_str, key_str=""):
             return True
     return False
 
+# 完美替换成全新容灾黄金函数
 json_cnb = load_json_safe(cnb_path)
 json_haitun = load_json_safe(haitun_path)
 
@@ -261,14 +301,10 @@ custom_keys = {site.get("key") for site in MY_CUSTOM_SITES if site.get("key")}
 upstream_sites = haitun_sites + cnb_sites
 clean_upstream_sites = [site for site in upstream_sites if site.get("key") not in custom_keys]
 
-# ------------------------------------------------------------------
-# 🎯 【过滤点播区核心注入】：从源头过滤包含指定黑名单关键词的点播线路
-# ------------------------------------------------------------------
 if BLOCK_KEYWORDS:
     filtered_upstream_sites = []
     for site in clean_upstream_sites:
         s_name = site.get("name", "")
-        # 如果线路名称包含任何一个黑名单关键词（忽略大小写模糊比对），则剔除
         if any(kw.lower() in s_name.lower() for kw in BLOCK_KEYWORDS if kw):
             continue
         filtered_upstream_sites.append(site)
@@ -286,9 +322,6 @@ clean_base_lives = [
     and not is_nsfw_content(live.get("name", ""), live.get("name", ""))
 ]
 
-# ------------------------------------------------------------------
-# 🎯 【过滤直播区核心注入】：同步过滤包含指定黑名单关键词的直播源
-# ------------------------------------------------------------------
 if BLOCK_KEYWORDS:
     filtered_base_lives = []
     for live in clean_base_lives:
@@ -303,7 +336,6 @@ inserted_count = 0
 for custom_live in MY_CUSTOM_LIVES:
     live_name = custom_live.get("name", "")
     
-    # 手工定制区同样执行黑名单拦截
     if BLOCK_KEYWORDS and any(kw.lower() in live_name.lower() for kw in BLOCK_KEYWORDS if kw):
         continue
         
@@ -379,7 +411,7 @@ try:
 
         if "rules" in ordered_obj and isinstance(ordered_obj["rules"], list):
             custom_js_rules = [
-                "console.log('老楊TV高級WebView攔截器啟ò');",
+                "console.log('老楊TV高級WebView攔截器啟動');",
                 "window.addEventListener('DOMContentLoaded', function() {",
                 "   document.querySelectorAll('video').forEach(v => { v.muted = true; v.play().catch(e=>{}); });",
                 "   Function.prototype.__constructor__ = Function.prototype.constructor;",
@@ -404,7 +436,6 @@ try:
             clean_lives = []
             for live in ordered_obj["lives"]:
                 if live and isinstance(live, dict):
-                    # 对最里层的直播频道组再次过滤，确保万无一失
                     filtered_channels = []
                     for ch in live.get("channels", []):
                         if not is_nsfw_content(ch.get("name", "")):
@@ -455,7 +486,6 @@ try:
                 if "jar" in site:
                     site.pop("jar")
 
-            # 对点播线路执行深度大清洗
             if is_nsfw_content(raw_name, s_key):
                 print(f"🛡️ 【绿色安全阻断】已从站点列表中强行剔除包含敏感词的线路: {raw_name}")
                 continue
@@ -549,9 +579,6 @@ try:
     sub_url = f"{GH_PROXY}{raw_github_url}" if GH_PROXY else raw_github_url
     current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
 
-    # ------------------------------------------------------------------
-    # 🌟 【新增核心功能：新密码专属推送通道（完全独立解耦）】
-    # ------------------------------------------------------------------
     if is_new_token_generated and tg_token and tg_chat_id:
         try:
             pwd_msg = f"🔔 *老杨TV · 纯净版全新月份硬核密码锁发布* 🔔\n\n"
