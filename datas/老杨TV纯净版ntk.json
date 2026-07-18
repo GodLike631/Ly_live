@@ -123,6 +123,14 @@
             "searchable": 1
         },
         {
+            "key": "xmvm",
+            "name": "🦋 神马影视.py(关梯)",
+            "type": 3,
+            "api": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/py/神马影视.py",
+            "category": "综合",
+            "searchable": 1
+        },
+        {
             "key": "bbzj",
             "name": "🦋 布布追剧.py",
             "type": 3,
@@ -2801,7 +2809,7 @@
                 "www.maolvys.com"
             ],
             "script": [
-                "console.log('老楊TV高級WebView攔截器啟ò');",
+                "console.log('老楊TV高級WebView攔截器啟動');",
                 "window.addEventListener('DOMContentLoaded', function() {",
                 "   document.querySelectorAll('video').forEach(v => { v.muted = true; v.play().catch(e=>{}); });",
                 "   Function.prototype.__constructor__ = Function.prototype.constructor;",
