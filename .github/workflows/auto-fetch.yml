@@ -45,9 +45,10 @@ jobs:
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --global core.quotepath false
         
+        # 核心优化：完美自动捕获并上传 datas/ 下的所有新老本备份文件
         git add datas/
         if ! git diff --cached --exit-code --quiet; then
-          git commit -m "自动同步最新绿色去敏感纯净版合并接口: $(date +'%Y-%m-%d %H:%M:%S')"
+          git commit -m "自动同步最新绿色去敏感纯净版合并接口 & 注入智能容灾机制: $(date +'%Y-%m-%d %H:%M:%S')"
           git push origin HEAD:${{ github.ref_name }}
         else
           echo "纯净版接口文件无任何实际变化，无需更新，优雅退出。"
