@@ -711,6 +711,14 @@
             "category": "综合"
         },
         {
+            "key": "ytb",
+            "name": "🦋 悦听吧.py",
+            "type": 3,
+            "api": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/py/悦听吧.py",
+            "category": "综合",
+            "searchable": 1
+        },
+        {
             "key": "Nostr",
             "name": "🦋 Nostr推荐",
             "type": 3,
@@ -1676,14 +1684,6 @@
             },
             "gridview": "0-0-4.1",
             "category": "少儿"
-        },
-        {
-            "key": "wddj",
-            "name": "🦋 黄豆短剧.py",
-            "type": 3,
-            "api": "https://ghfast.top/https://raw.githubusercontent.com/FGBLH/HKL/refs/heads/main/py/黄豆短剧.py",
-            "category": "音乐",
-            "searchable": 0
         },
         {
             "key": "djjh",
