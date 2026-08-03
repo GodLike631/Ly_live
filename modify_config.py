@@ -1,684 +1,1023 @@
-import os
+# -*- coding: utf-8 -*-
+"""
+蝴蝶影视 核心自动编译流主程序 (广告强力清洗修正版)
+"""
 import re
+import os
+import sys
+import json
+import time
 import random
 import string
-import glob
+import copy
 import datetime
-import json
-import urllib.request
-import urllib.parse
+import logging
+from pathlib import Path
+
+# 引入优化请求库
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
+
+# 引入独立配置文件
+import config
 
 # ====================================================================
-# ⚙️ 【用户自定义专属配置区】
-# 提示：在这里修改变量，后续所有逻辑和推送会自动同步生效，无需改动下方的核心代码。
+# 🎛️ 【高可用场景色彩日志控制中心】
 # ====================================================================
-# 1. 国内加速前缀（如果不想用任何加速，直接留空 "" 即可。末尾请保留斜杠）
-GH_PROXY = "https://gh-proxy.org/"
-
-# 🚫 【新增：自定义黑名单关键词过滤区】
-# 在下方列表中填入指定关键词（支持多个），脚本合并时会自动删除包含这些关键词的
-# 点播线路与直播源。如果不需要过滤，保持列表为空即可。
-# ====================================================================
-BLOCK_KEYWORDS = ["羊壳", "弹幕", "不可用"]
-
-# ====================================================================
-# 📁 【文件路径声明】
-# ====================================================================
-cnb_path = 'datas/cnb.json'
-haitun_path = 'datas/haitun.json'
-lock_file_path = 'datas/控制开关.txt'
-tracker_path = 'datas/最新接口文件名.txt'
-
-# ====================================================================
-# ✍️ 【通道一：老杨专属点播手工加线区】
-# ====================================================================
-MY_CUSTOM_SITES = [
-    {
-        "key": "山楂影视",
-        "name": "山楂影视.py", 
-        "type": 3,
-        "api": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E5%B1%B1%E6%A5%82%E5%BD%B1%E8%A7%86.py",
-        "searchable": 1,
-        "quickSearch": 1
-    },
-    {
-        "key": "红果短剧",
-        "name": "红果短剧.py",  
-        "type": 3,
-        "api": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E7%BA%A2%E6%9E%9C%E7%9F%AD%E5%89%A7.py",
-        "searchable": 1,
-        "quickSearch": 1
+class CustomFormatter(logging.Formatter):
+    green = "\033[92m"
+    cyan = "\033[96m"
+    yellow = "\033[93m"
+    red = "\033[91m"
+    magenta = "\033[95m"
+    reset = "\033[0m"
+    base_fmt = "%(asctime)s [%(levelname)s] %(message)s"
+    FORMATS = {
+        logging.DEBUG: cyan + base_fmt + reset,
+        logging.INFO: green + base_fmt + reset,
+        logging.WARNING: yellow + base_fmt + reset,
+        logging.ERROR: red + base_fmt + reset,
+        logging.CRITICAL: magenta + base_fmt + reset
     }
-]
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno, self.base_fmt)
+        formatter = logging.Formatter(log_fmt, datefmt='%Y-%m-%d %H:%M:%S')
+        return formatter.format(record)
+
+_logger = logging.getLogger("ButterflyEngine")
+_logger.setLevel(logging.DEBUG)
+_logger.handlers.clear()
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(CustomFormatter())
+_logger.addHandler(stream_handler)
+
+def log_info(msg): _logger.info(msg)
+def log_warning(msg): _logger.warning(msg)
+def log_error(msg, exc_info=False): _logger.error(msg, exc_info=exc_info)
+def log_critical(msg, exc_info=False): _logger.critical(msg, exc_info=exc_info)
+def log_success(msg): _logger.info(f"✨ [SUCCESS] {msg}")
+def log_network(msg): _logger.info(f"🌐 [NETWORK] {msg}")
+def log_diff(msg):    _logger.info(f"📊 [DIFF_DET] {msg}")
 
 # ====================================================================
-# 📺 【通道二：老杨专属直播手工加线区（从第 6 位开始正向依序后排）】
+# 📡 【统一网络环境初始化与高可用 Session 连接池】
 # ====================================================================
-# 提示：此处手工直播线也会经过敏感词安全审查，带有🔞等敏感词的会被系统自动剔除
-# ====================================================================
-MY_CUSTOM_LIVES = [
-    {
-        "name": "乡村电视 ｜Tg：@huliys9",
-        "type": 0,
-        "playerType": 2,
-        "ua": "okhttp/5.3.2",
-        "url": "https://gh-proxy.com/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E4%B9%A1%E6%9D%91%E7%94%B5%E8%A7%86.txt"
-    },
-    {
-      "name": "锋云直播｜Tg：@huliys9",
-      "type": 3,
-      "url": "https://gh-proxy.org/https://raw.githubusercontent.com/807080747/zv/refs/heads/main/suale.txt",
-      "ua": "okhttp/5.3.2",
-      "timeout": 10,
-      "playerType": 2
-    },
-    {
-        "name": "最新电影｜Tg：@huliys9",
-        "type": 0,
-        "ua": "okhttp/5.3.2",
-        "url": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/Ly_18/refs/heads/main/datas/%E6%9C%80%E6%96%B0%E7%94%B5%E5%BD%B1.m3u"
-    },
-    {
-        "name": "Kimentanm",
-        "type": 0,
-        "url": "https://ghfast.top/https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u",
-        "playerType": 2
-    },
-    {
-      "name": "综合直播",
-      "type": 0,
-      "playerType": 2,
-      "url": "https://ghfast.top/https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/interface.txt",
-      "ua": "bingcha/1.1 (mianfeifenxiang) "
-    },
-    {
-        "name": "央卫TV｜Tg：@huliys9",
-        "type": 0,
-        "ua": "okhttp/5.3.2",
-        "url": "http://47.120.41.246:8025/vip/jar/zb.php"
-    },
-    {
-        "name": "超稳定流畅｜Tg：@huliys9",
-        "type": 0,
-        "ua": "okhttp/5.3.2",
-        "url": "https://ghfast.top/https://raw.githubusercontent.com/GodLike631/test/refs/heads/main/datas/%E8%B6%85%E7%A8%B3%E5%AE%9A%E6%B5%81%E7%95%85.txt"
-    },
-    {
-        "name": "咪咕｜Tg：@huliys9",
-        "type": 0,
-        "ua": "okhttp/5.3.2",
-        "url": "https://develop202.github.io/migu_video/interface.txt"
-    },
-    {
-      "name": "Gather「IPTV」｜Tg：@huliys9",
-      "type": 3,
-      "url": "https://iptv.yang-1989.xyz/playlist.m3u",
-      "epg":"https://material.yang-1989.xyz/epg.xml.gz",
-      "ua": "okhttp/5.3.2",
-      "timeout": 10,
-      "playerType": 2
-    },
-    {
-      "name": "Live「直播」｜Tg：@huliys9",
-      "type": 3,
-      "url": "https://live.yang-1989.eu.org/Live.m3u",
-      "ua": "okhttp/5.3.2",
-      "timeout": 10,
-      "playerType": 2
-    },
-    {
-      "name": "myTV「香港」｜Tg：@huliys9",
-      "type": 3,
-      "url": "https://iptv.yang-1989.xyz/myTV/playlist.m3u",
-      "epg":"https://material.yang-1989.xyz/epg.xml.gz",
-      "ua": "okhttp/5.3.2",
-      "timeout": 10,
-      "playerType": 2
-    }
-]
+HTTP_SESSION = requests.Session()
+retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+HTTP_SESSION.mount("http://", HTTPAdapter(max_retries=retries))
+HTTP_SESSION.mount("https://", HTTPAdapter(max_retries=retries))
 
-# ====================================================================
-# ⏰ 【每月 1 号自动大洗牌与控制开关自动生成逻辑】
-# ====================================================================
-today = datetime.datetime.now()
-current_month = str(today.month) 
-is_reset_day = (today.day == 1)
-
-saved_month = ""
-saved_code = ""
-
-is_new_token_generated = False
-
-if os.path.exists(lock_file_path):
-    with open(lock_file_path, 'r', encoding='utf-8') as f:
-        content = f.read().strip()
-        if "-" in content:
-            saved_month, saved_code = content.split("-", 1)
+def send_telegram_request(token, chat_id, text):
+    """使用统一 Session 高效下发 Telegram 通知"""
+    if not token or not chat_id:
+        log_warning("缺失 TG_TOKEN 或 TG_CHAT_ID，跳过发送 TG 通知。")
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "parse_mode": "Markdown", "text": text}
+    try:
+        log_network("正在向 TG 频道下发蝴蝶影视编译快报...")
+        res = HTTP_SESSION.post(url, json=payload, timeout=config.TG_TIMEOUT)
+        if res.status_code == 200:
+            log_success("Telegram 通知在独立连接池中直发成功！")
+            return True
         else:
-            saved_code = content
-
-if is_reset_day and saved_month != current_month:
-    current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=3))
-    with open(lock_file_path, 'w', encoding='utf-8') as f:
-        f.write(f"{current_month}-{current_token}")
-    print(f"⏰ 【每月1号全新硬核洗牌】检测到进入新月份 {current_month} 月！已全自动抽签生成本月新密锁: {current_token}")
-    is_new_token_generated = True
-elif is_reset_day and saved_month == current_month:
-    current_token = saved_code
-    print(f"🔒 【安全阀拦截】今日 1号已经是当月第二次运行，保持原暗号: {current_token}")
-else:
-    if not saved_code or len(saved_code) != 3 or "-" not in (content if os.path.exists(lock_file_path) else ""):
-        current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=3))
-        with open(lock_file_path, 'w', encoding='utf-8') as f:
-            f.write(f"{current_month}-{current_token}")
-    else:
-        current_token = saved_code
-    print(f"📡 正常沿用本月密锁: {current_token}")
-
-if current_token in ["全量版", "纯净版"]:
-    output_filename = "老杨TV纯净版.json"
-else:
-    output_filename = f"老杨TV纯净版{current_token}.json"
-
-output_path = f"datas/{output_filename}"
-print(f"🎯 最终结算 -> 目标输出：{output_filename}")
+            log_error(f"TG 接口响应异常: 状态码 {res.status_code}，死因: {res.text}")
+    except Exception as e:
+        log_error(f"Telegram 网络总线请求崩溃: {e}")
+    return False
 
 # ====================================================================
-# 🛡️ 【金蝉脱壳：纯净版过期旧线自动全文字大轰炸】
+# 🛡️ 【智能容灾本地 JSON 安全加载模块】
 # ====================================================================
-old_configs = glob.glob('datas/老杨TV纯净版*.json') + glob.glob('datas/老杨TV*.json')
-for old_file in old_configs:
-    if os.path.basename(old_file) != output_filename:
-        try:
-            trap_json = {
-                "spider": "", 
-                "notice": f"⚠️ 警告：当前专线已过期断流！老链接已彻底作废！\n\n最新纯净版链接或当前密码请加QQ群“532637640”获取",
-                "sites": [
-                    {"key": "老杨纯文字提示", "name": "🚨 请前往QQ群“532637640”获取最新密码🚨 当前专线密码已过期断流！", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0},
-                    {"key": "老杨纯文字提示2", "name": "🚨 请前往QQ群“532637640”获取最新纯净版链接", "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0}
-                ],
-                "lives": [
-                    {"group": "🚨 接口过期断流 ｜ 提示", "channels": [{"name": "👉 线路已过期 ➡️ 加QQ群“532637640”获取最新纯净版密码", "urls": ["http://127.0.0.1"]}]}
-                ]
-            }
-            with open(old_file, 'w', encoding='utf-8') as f:
-                json.dump(trap_json, f, ensure_ascii=False, indent=4)
-            print(f"📡 【金蝉脱壳】已成功将过期旧线调包为纯文字大轰炸: {old_file}")
-        except:
-            pass
-
-for garbage in glob.glob('datas/config_*.json'):
-    try: os.remove(garbage)
-    except: pass
-
-
-# ====================================================================
-# 🛡️ 【方案 B 核心升级：具备智能容灾和纯净版底包备份的 JSON 加载器】
-# ====================================================================
-def load_json_safe(path):
-    dir_name = os.path.dirname(path)
-    base_name = os.path.basename(path)
-    name_part, ext_part = os.path.splitext(base_name)
-    backup_path = os.path.join(dir_name, f"{name_part}_backup{ext_part}")
-
+def load_json_safe(file_path: Path) -> dict:
+    """底包安全过滤器与自动历史恢复引擎"""
+    backup_path = file_path.parent / f"{file_path.stem}_backup{file_path.suffix}"
     current_data = None
     is_current_valid = False
 
-    # 1. 拦截并深度读取当前被 curl 覆写的源文件
-    if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            try:
-                current_data = json.load(f)
-                if isinstance(current_data, dict) and ("sites" in current_data or "lives" in current_data or "parses" in current_data):
-                    is_current_valid = True
-                else:
-                    print(f"⚠️ 警告：{path} 虽是合法的 JSON，但缺少底包核心字段，判定为损坏坏源！")
-            except Exception:
-                print(f"⚠️ 警告：{path} 文件彻底损坏或内容为空，解析失败！")
-
-    # 2. 智能容灾流控判定
-    if is_current_valid:
-        # 状况良好 -> 赶紧刷新备份文件
+    if file_path.exists():
         try:
-            with open(backup_path, 'w', encoding='utf-8') as b_f:
-                json.dump(current_data, b_f, ensure_ascii=False, indent=4)
-            print(f"✅ 成功：{path} 安全指标通过，已同步刷新本地纯净版备份库。")
-        except Exception as backup_err:
-            print(f"🚨 本地备份写出失败: {backup_err}")
+            current_data = json.loads(file_path.read_text(encoding='utf-8'))
+            if isinstance(current_data, dict) and ("sites" in current_data or "lives" in current_data or "parses" in current_data):
+                is_current_valid = True
+            else:
+                log_warning(f"底包 {file_path.name} 根节点不合规，标记为损坏源。")
+        except Exception:
+            log_warning(f"底包 {file_path.name} 解析 JSON 崩溃，文件可能为空。")
+
+    if is_current_valid:
+        try:
+            backup_path.write_text(json.dumps(current_data, ensure_ascii=False, indent=4), encoding='utf-8')
+            log_info(f"底包 {file_path.name} 安全复核通过，增量同步到本地备份链中。")
+        except Exception as e:
+            log_error(f"本地同步备份链写入失败: {e}")
         return current_data
     else:
-        # 状况恶劣（上游失效改地址） -> 降级紧急抽调历史健康的纯净版老本
-        print(f"🚨 触发纯净版容灾机制：上游数据源 {path} 已失效！开启安全回滚降级...")
-        if os.path.exists(backup_path):
-            with open(backup_path, 'r', encoding='utf-8') as b_f:
-                try:
-                    backup_data = json.load(b_f)
-                    print(f"🥇 容灾成功！已成功载入历史健康的纯净版数据: {backup_path}")
-                    # 回写覆写坏源，保护下层组件不崩溃
-                    with open(path, 'w', encoding='utf-8') as f:
-                        json.dump(backup_data, f, ensure_ascii=False, indent=4)
-                    return backup_data
-                except Exception:
-                    print(f"❌ 严重错误：本地历史备份文件 {backup_path} 竟也发生了损坏！")
+        log_critical(f"上游数据源 {file_path.name} 彻底断流！启动自动化容灾降级...")
+        if backup_path.exists():
+            try:
+                backup_data = json.loads(backup_path.read_text(encoding='utf-8'))
+                log_success(f"容灾降级成功！已从历史干净数据中提取并重构底包: {backup_path.name}")
+                file_path.write_text(json.dumps(backup_data, ensure_ascii=False, indent=4), encoding='utf-8')
+                return backup_data
+            except Exception:
+                log_critical(f"致命灾难：本地老本数据 {backup_path.name} 也意外遭到物理损坏！")
         else:
-            print(f"❌ 严重错误：在本地安全区未检索到任何备份文件 {backup_path}！")
-        
+            log_critical(f"致命灾难：本地库中未检索到任何备份副本 {backup_path.name}！")
         return {}
 
-
-# 🛑 【定义全品类超级敏感词库 - 彻底实现纯净版】
-NSFW_KEYWORDS = ['🔞', '色播', 'md', '福利', '三级',  '爆料', '麻豆', '蜜桃', '糖心', '日本女优', '日本女友', '成人']
-
-def is_nsfw_content(name_str, key_str=""):
-    """安全过滤判定：无论是名字还是 key 包含关键字，一律枪毙"""
-    name_lower = str(name_str).lower()
-    key_lower = str(key_str).lower()
-    for kw in NSFW_KEYWORDS:
-        if kw in name_lower or kw in key_lower:
-            return True
-    return False
-
-# 完美替换成全新容灾黄金函数
-json_cnb = load_json_safe(cnb_path)
-json_haitun = load_json_safe(haitun_path)
-
-haitun_sites = json_haitun.get("sites", [])
-haitun_lives = json_haitun.get("lives", [])
-
-for item in haitun_sites:
-    if "name" in item:
-        item["name"] = f"{item['name']}｜Tg：@huliys9"
-for item in haitun_lives:
-    if "name" in item:
-        item["name"] = f"{item['name']}｜Tg：@huliys9"
-
-cnb_sites = json_cnb.get("sites", [])
-cnb_lives = json_cnb.get("lives", [])
-
-combined_parses = json_haitun.get("parses", []) + json_cnb.get("parses", [])
-
-custom_keys = {site.get("key") for site in MY_CUSTOM_SITES if site.get("key")}
-upstream_sites = haitun_sites + cnb_sites
-clean_upstream_sites = [site for site in upstream_sites if site.get("key") not in custom_keys]
-
-if BLOCK_KEYWORDS:
-    filtered_upstream_sites = []
-    for site in clean_upstream_sites:
-        s_name = site.get("name", "")
-        if any(kw.lower() in s_name.lower() for kw in BLOCK_KEYWORDS if kw):
-            continue
-        filtered_upstream_sites.append(site)
-    clean_upstream_sites = filtered_upstream_sites
-
-json_cnb["sites"] = clean_upstream_sites + MY_CUSTOM_SITES
-
-custom_live_names = {live.get("name") for live in MY_CUSTOM_LIVES if live.get("name")}
-base_lives = haitun_lives + cnb_lives
-
-# 对公共直播源底包执行严格的 🔞 级清洗
-clean_base_lives = [
-    live for live in base_lives 
-    if live.get("name") not in custom_live_names 
-    and not is_nsfw_content(live.get("name", ""), live.get("name", ""))
-]
-
-if BLOCK_KEYWORDS:
-    filtered_base_lives = []
-    for live in clean_base_lives:
-        l_name = live.get("name", "")
-        if any(kw.lower() in l_name.lower() for kw in BLOCK_KEYWORDS if kw):
-            continue
-        filtered_base_lives.append(live)
-    clean_base_lives = filtered_base_lives
-
-# 对手工直播加线区执行严格的 🔞 级清洗
-inserted_count = 0 
-for custom_live in MY_CUSTOM_LIVES:
-    live_name = custom_live.get("name", "")
+# ====================================================================
+# ⏰ 【每月 1 号随机抽取双换锁日期（含跨月间隔>=10天安全防护）】
+# ====================================================================
+def generate_two_random_days(days_in_month, min_first_day=1):
+    """
+    在当月天数中，随机抽取两个间隔 >= 14 天的日期号。
+    :param min_first_day: 第一个换锁日的最小允许日期（用于防止跨月换锁过于频繁）
+    """
+    valid_pairs = []
+    start_day = max(1, min_first_day)
     
-    if BLOCK_KEYWORDS and any(kw.lower() in live_name.lower() for kw in BLOCK_KEYWORDS if kw):
-        continue
-        
-    if is_nsfw_content(live_name):
-        print(f"🛡️ 【绿色警戒拦截】已强行剔除包含敏感词的手工直播线: {live_name}")
+    for d1 in range(start_day, days_in_month + 1):
+        for d2 in range(d1 + 14, days_in_month + 1):
+            valid_pairs.append((d1, d2))
+    
+    # 如果受限于 min_first_day 导致无法抽取，保底降级选 11 和 25
+    if not valid_pairs:
+        return 11, min(25, days_in_month)
+    
+    return random.choice(valid_pairs)
+
+def manage_monthly_token():
+    """管理硬核密码生存控制中枢（严格北京时间，每月1号随机抽取两次换锁日期，含跨月防频繁换锁保护）"""
+    # 🎯 1. 强制统一为北京时间 (UTC+8)
+    tz_bj = datetime.timezone(datetime.timedelta(hours=8))
+    now_bj = datetime.datetime.now(tz_bj)
+    
+    current_ym = now_bj.strftime("%Y%m")       # 如 '202609'
+    current_date = now_bj.strftime("%Y%m%d")   # 如 '20260901'
+    today_dt = now_bj.date()
+    today_day = now_bj.day                     # 今天是当月第几天 (int)
+    
+    # 获取当月总天数
+    if now_bj.month == 12:
+        next_month_first = datetime.datetime(now_bj.year + 1, 1, 1, tzinfo=tz_bj)
     else:
-        insert_idx = 5 + inserted_count
-        if len(clean_base_lives) >= insert_idx:
-            clean_base_lives.insert(insert_idx, custom_live)
-        else:
-            clean_base_lives.append(custom_live)
-        inserted_count += 1
+        next_month_first = datetime.datetime(now_bj.year, now_bj.month + 1, 1, tzinfo=tz_bj)
+    days_in_month = (next_month_first - datetime.datetime(now_bj.year, now_bj.month, 1, tzinfo=tz_bj)).days
 
-json_cnb["lives"] = clean_base_lives
-
-final_json_text = json.dumps(json_cnb, ensure_ascii=False, indent=4)
-
-final_json_text = final_json_text.replace('"key": "hajim-腾讯备"', '"spider": "./tvbox.jar",\n            "key": "hajim-腾讯备"')
-final_json_text = final_json_text.replace('"key": "茫茫"', '"spider": "./tvbox.jar",\n            "key": "茫茫"')
-
-final_json_text = final_json_text.replace('🐬', '').replace('海豚影视', '').replace('海豚', '')
-final_json_text = final_json_text.replace('完全免费，如有收费的都是骗子', '').replace('交流群 TG：@hshsjk9', '')
-
-path_replacements = {
-    './spider.jar': 'https://cnb.cool/fish2018/xs/-/git/raw/main/spider.jar',
-    './XBPQ/': 'https://cnb.cool/fish2018/xs/-/git/raw/main/XBPQ/',
-    './XYQHiker': 'https://cnb.cool/fish2018/xs/-/git/raw/main/XYQHiker/',
-    './js/': 'https://cnb.cool/fish2018/xs/-/git/raw/main/js/',
-    './json/': 'https://cnb.cool/fish2018/xs/-/git/raw/main/json/',
-    './py/': 'https://cnb.cool/fish2018/xs/-/git/raw/main/py/',
-    'http://127.0.0.1:9978/file/TVBox/logo.png': 'https://img.naixiai.cn/2026/06/18/IMG_6638.jpeg'
-}
-for src, dst in path_replacements.items():
-    final_json_text = final_json_text.replace(src, dst)
-
-thanks_warning = "\n\n👑如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！ "
-welcome_notice = "👑 欢迎使用【老杨TV粉丝专属缝合专线】！本接口由老杨TV结合佬&鱼佬的优质核心资源缝合而成，纯净无广告！🚨 重要提示：本接口密码不定期全自动更换！如果遇到失效 or 断流，请及时回 Telegram 频道（@huliys9）或微信群获取当前最新密码！"
-
-try:
-    final_obj = json.loads(final_json_text)
-    final_obj["notice"] = welcome_notice + thanks_warning
-    if "warningText" in final_obj:
-        final_obj.pop("warningText")
+    saved_ym = ""
+    saved_count = 0
+    day_a, day_b = 0, 0
+    saved_last_date = ""
+    saved_code = ""
     
-    ordered_obj = {}
-    if "notice" in final_obj: 
-        ordered_obj["notice"] = final_obj.pop("notice")
+    is_new_token_generated = False
+
+    # 🎯 2. 解析本地存储记录 (datas/控制开关.txt)
+    # 标准格式: YYYYMM-count-dayA-dayB-lastDate-code (例如: 202608-2-01-29-20260829-a1b)
+    if config.LOCK_FILE_PATH.exists():
+        content = config.LOCK_FILE_PATH.read_text(encoding='utf-8').strip()
+        parts = content.split("-")
         
-    ordered_obj.update(final_obj)
-    
-    try:
-        unique_parses = []
-        seen_names = set()
-        for p in combined_parses:
-            name = p.get("name", "")
-            if name and name not in seen_names:
-                unique_parses.append(p)
-            seen_names.add(name)
-        ordered_obj["parses"] = unique_parses
+        if len(parts) == 6:
+            saved_ym, saved_count_str, da_str, db_str, saved_last_date, saved_code = parts
+            saved_count = int(saved_count_str) if saved_count_str.isdigit() else 0
+            day_a = int(da_str) if da_str.isdigit() else 0
+            day_b = int(db_str) if db_str.isdigit() else 0
+        elif len(parts) == 2:
+            saved_code = parts[1]
+        else:
+            saved_code = content
 
-        if "doh" in ordered_obj and isinstance(ordered_obj["doh"], list):
-            for doh_item in ordered_obj["doh"]:
-                if doh_item.get("url", "").endswith("/dns-quer"):
-                    doh_item["url"] = doh_item["url"] + "y"
-            
-            ali_doh = {
-                "name": "AliDNS",
-                "url": "https://dns.alidns.com/dns-query",
-                "ips": ["223.5.5.5", "223.6.6.6"]
-            }
-            if not any(d.get("name") == "AliDNS" for d in ordered_obj["doh"]):
-                ordered_obj["doh"].insert(0, ali_doh)
+    # 🎯 3. 跨月检测与当月随机日期生成 (含跨月安全间隔 >= 10 天防频繁机制)
+    if saved_ym != current_ym or day_a == 0 or day_b == 0:
+        min_first_day = 1
 
-        if "rules" in ordered_obj and isinstance(ordered_obj["rules"], list):
-            custom_js_rules = [
-                "console.log('老楊TV高級WebView攔截器啟動');",
-                "window.addEventListener('DOMContentLoaded', function() {",
-                "   document.querySelectorAll('video').forEach(v => { v.muted = true; v.play().catch(e=>{}); });",
-                "   Function.prototype.__constructor__ = Function.prototype.constructor;",
-                "   Function.prototype.constructor = function() { if (arguments && typeof arguments[0] === 'string' && arguments[0].includes('debugger')) { return function(){}; } return Function.prototype.__constructor__.apply(this, arguments); };",
-                "});",
-                "setInterval(() => { let selectors = ['.adv-class', '.pop-banner', '#notice-modal', '[id*=\"partner\"]', '[class*=\"baidu\"]', 'iframe[src*=\"game\"]', 'iframe[src*=\"bet\"]', '#pop-ad', '.sidebar-ads', 'a[href*=\"999\"]']; selectors.forEach(sel => { document.querySelectorAll(sel).forEach(el => el.remove()); }); }, 400);"
-            ]
-            current_rules = ordered_obj.get("rules", [])
-            ad_hosts = ["vip.wwgz.cn", "lziplayer.com", "m3u8.apibdzy.com", "cj.ffzyapi.com", "api.hbzyapi.com"]
-            for rule in current_rules:
-                if isinstance(rule, dict) and "hosts" in rule:
-                    for h in rule["hosts"]:
-                        if h not in ad_hosts: ad_hosts.append(h)
-            js_injection_rule = {
-                "name": "老楊TV·雲端高級去广告JS注入",
-                "hosts": ad_hosts,
-                "script": custom_js_rules
-            }
-            ordered_obj["rules"] = [js_injection_rule] + [r for r in current_rules if r.get("name") != "老楊TV·雲端高級去广告JS注入"]
-
-        if "lives" in ordered_obj and isinstance(ordered_obj["lives"], list):
-            clean_lives = []
-            for live in ordered_obj["lives"]:
-                if live and isinstance(live, dict):
-                    filtered_channels = []
-                    for ch in live.get("channels", []):
-                        if not is_nsfw_content(ch.get("name", "")):
-                            filtered_channels.append(ch)
-                    live["channels"] = filtered_channels
-                    
-                    if not live.get("ua") or live.get("ua") == "okhttp":
-                        live["ua"] = "okhttp/5.3.2"
-                    clean_lives.append(live)
-            ordered_obj["lives"] = clean_lives
-
-        block_1_rebo = []         
-        block_2_yingshi = []      
-        block_3_duanju = []       
-        block_4_dongman = []      
-        block_5_cili = []         
-        block_6_tiyu = []         
-        block_7_shaoer = []       
-        block_8_yinyue = []       
-        block_9_fuli = []      
-
-        tg_tail_count = 0
-        for site in ordered_obj.get("sites", []):
-            if "name" not in site:
-                continue
+        # 计算距离【上一次换锁】过去了多少天
+        if saved_last_date:
+            try:
+                last_date_dt = datetime.datetime.strptime(saved_last_date, "%Y%m%d").date()
+                days_since_last_change = (today_dt - last_date_dt).days
                 
-            raw_name = site["name"]
-            s_key = site.get("key", "")
-            s_genre = site.get("genre", "")
-            s_api = site.get("api", "")
+                # 🛡️ 跨月安全防护：如果距离上次换锁不足 10 天，推迟当月的第一个换锁日
+                if days_since_last_change < 10:
+                    needed_delay = 10 - days_since_last_change
+                    min_first_day = today_day + needed_delay  # 强制第一个换锁日不能早于 min_first_day
+                    log_warning(f"🛡️ 触发跨月保护！上月最后一次换锁是在 {saved_last_date}（仅隔 {days_since_last_change} 天），本月第一个换锁日将不早于 {min_first_day}号！")
+            except Exception as e:
+                log_error(f"解析上次换锁日期失败: {e}")
 
-            for char in ['丨', '┃', ' ']:
-                raw_name = raw_name.strip(char)
-            raw_name = re.sub(r'\s+', ' ', raw_name)
+        # 🛡️ 特殊过渡保护（针对首日上线）：如果是上线当天且之前已有旧密码
+        if today_day == 1 and saved_code and saved_ym == "":
+            day_a = 1
+            day_b = random.randint(15, days_in_month)
+            saved_count = 1
+            saved_last_date = current_date
+            log_success(f"🛡️ 启动首日上线过渡保护！1号已计为第1次换锁，本月第2次换锁排班在: {day_b}号")
+        else:
+            # 根据安全最小起始日，随机抽取 DayA 和 DayB
+            day_a, day_b = generate_two_random_days(days_in_month, min_first_day=min_first_day)
+            saved_count = 0
+            log_success(f"🎲 每月1号随机抽签完成！本月【北京时间】两次换锁排班日期为: {day_a}号 和 {day_b}号 (间隔 {day_b - day_a} 天)")
+        
+        saved_ym = current_ym
+
+    # 🎯 4. 判定今天是否需要自动换锁
+    should_reset = False
+    new_count = saved_count
+
+    if saved_last_date != current_date:
+        if today_day == day_a and saved_count < 1:
+            should_reset = True
+            new_count = 1
+            log_info(f"⏰ 命中当月第 1 次随机换锁日 ({day_a}号)！")
+        elif today_day == day_b and saved_count < 2:
+            should_reset = True
+            new_count = 2
+            log_info(f"⏰ 命中当月第 2 次随机换锁日 ({day_b}号)！")
+
+    # 🎯 5. 执行换锁与写回控制文件
+    if should_reset:
+        current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=config.TOKEN_LENGTH))
+        lock_str = f"{current_ym}-{new_count}-{day_a:02d}-{day_b:02d}-{current_date}-{current_token}"
+        config.LOCK_FILE_PATH.write_text(lock_str, encoding='utf-8')
+        log_success(f"🔑 自动更换新密锁成功 (本月第{new_count}次更换)！新密锁为: {current_token}")
+        is_new_token_generated = True
+    else:
+        if not saved_code or len(saved_code) != config.TOKEN_LENGTH:
+            current_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=config.TOKEN_LENGTH))
+            saved_last_date = current_date
+        else:
+            current_token = saved_code
+
+        lock_str = f"{current_ym}-{saved_count}-{day_a:02d}-{day_b:02d}-{saved_last_date or current_date}-{current_token}"
+        config.LOCK_FILE_PATH.write_text(lock_str, encoding='utf-8')
+
+    # 🎯 6. 生成对应的输出文件名
+    if current_token in ["全量版", "纯净版"]:
+        full_output_filename = f"{config.BASE_OUTPUT_FULL}.json"
+        clean_output_filename = f"{config.BASE_OUTPUT_CLEAN}.json"
+    else:
+        full_output_filename = f"{config.BASE_OUTPUT_FULL}{current_token}.json"
+        clean_output_filename = f"{config.BASE_OUTPUT_CLEAN}{current_token}.json"
+
+    return current_token, full_output_filename, clean_output_filename, is_new_token_generated
+
+# ====================================================================
+# 🛡️ 【过期接口金蝉脱壳爆破模块】
+# ====================================================================
+def execute_trap_boom(full_output_filename, clean_output_filename):
+    """金蝉脱壳：全自动过期大轰炸覆盖机制"""
+    if not config.DATA_DIR.exists():
+        config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        
+    old_configs = list(config.DATA_DIR.glob(f'{config.BASE_OUTPUT_FULL}*.json')) + \
+                  list(config.DATA_DIR.glob(f'{config.BASE_OUTPUT_CLEAN}*.json')) + \
+                  list(config.DATA_DIR.glob('老杨TV*.json')) + \
+                  list(config.DATA_DIR.glob('蝴蝶影视*.json'))
+
+    for old_file in old_configs:
+        if old_file.name != full_output_filename and old_file.name != clean_output_filename:
+            try:
+                trap_json = {
+                    "spider": "", 
+                    "notice": config.TRAP_NOTICE_TEXT,
+                    "sites": [
+                        {"key": "提示", "name": config.TRAP_SITE_NAME_1, "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0},
+                        {"key": "提示2", "name": config.TRAP_SITE_NAME_2, "type": 3, "api": "csp_JuDou", "searchable": 0, "quickSearch": 0, "filterable": 0}
+                    ],
+                    "lives": [
+                        {"group": config.TRAP_LIVE_GROUP, "channels": [{"name": config.TRAP_LIVE_CHANNEL, "urls": ["http://127.0.0.1"]}]}
+                    ]
+                }
+                old_file.write_text(json.dumps(trap_json, ensure_ascii=False, indent=4), encoding='utf-8')
+            except Exception:
+                pass
+
+    for garbage in config.DATA_DIR.glob('config_*.json'):
+        try: garbage.unlink()
+        except Exception: pass
+
+# ====================================================================
+# ⚙️ 【核心业务：对象级链式清洗与归类编译引擎】
+# ====================================================================
+def object_level_wash_and_compile():
+    """100%纯内存对象流操作，杜绝二次重载"""
+    # 🎯 1. 实时获取最新的过滤与清洗规则
+    block_keywords = config.get_block_keywords()
+    upstream_dirty_words = config.get_upstream_dirty_words()
+    block_malicious_keywords = config.get_block_malicious_keywords()
+
+    # 🎯 2. 加载四个底包 JSON
+    json_cnb = load_json_safe(config.CNB_PATH)
+    json_haitun = load_json_safe(config.HAITUN_PATH)
+    json_lz = load_json_safe(config.LZ_PATH)
+    json_dol2 = load_json_safe(config.dol2_PATH)
+
+    # 🎯 3. 提前提取所有底包的 sites 和 lives 变量（确保在组合前全部定义完）
+    cnb_sites = json_cnb.get("sites", [])
+    cnb_lives = json_cnb.get("lives", [])
+
+    haitun_sites = json_haitun.get("sites", [])
+    haitun_lives = json_haitun.get("lives", [])
+
+    lz_sites = json_lz.get("sites", [])
+
+    dol2_sites = json_dol2.get("sites", [])
+    dol2_lives = json_dol2.get("lives", [])
+
+    # 处理 LZ 底包中的 NSFW 属性与 API 路径映射
+    lz_nsfw_list = []
+    for item in lz_sites:
+        site_name = item.get("name", "")
+        if "🔞" in site_name:
+            item["name"] = f"{site_name.replace('🔞', '').strip()}｜🔞"
+            api_str = item.get("api", "")
+            if isinstance(api_str, str) and api_str.startswith("./"):
+                if api_str.startswith("./py/"):
+                    item["api"] = api_str.replace("./py/", "https://gh-proxy.com/https://raw.githubusercontent.com/ediart/tvbox/refs/heads/main/lz/py/")
+                elif api_str.startswith("./js/"):
+                    item["api"] = api_str.replace("./js/", "https://gh-proxy.com/https://raw.githubusercontent.com/ediart/tvbox/refs/heads/main/lz/js/")
+                else:
+                    item["api"] = api_str.replace("./", "https://gh-proxy.com/https://raw.githubusercontent.com/ediart/tvbox/refs/heads/main/lz/")
+            lz_nsfw_list.append(item)
+
+    # 🎯 4. 【全量物理清洗】：对所有上游点播源与直播源执行统一广告词清洗（拔除 🐬 等字符）
+    all_raw_sites = haitun_sites + lz_nsfw_list + cnb_sites + dol2_sites
+    for item in all_raw_sites:
+        if "name" in item and isinstance(item["name"], str):
+            for dirty in upstream_dirty_words:
+                item["name"] = item["name"].replace(dirty, "")
+
+    all_raw_lives = haitun_lives + cnb_lives + dol2_lives
+    for item in all_raw_lives:
+        if "name" in item and isinstance(item["name"], str):
+            for dirty in upstream_dirty_words:
+                item["name"] = item["name"].replace(dirty, "")
+
+    # 合并并去重 parses 解析列表
+    combined_parses = json_haitun.get("parses", []) + json_lz.get("parses", []) + json_cnb.get("parses", []) + json_dol2.get("parses", [])
+    unique_parses = []
+    seen_parse_names = set()
+    for p in combined_parses:
+        p_name = p.get("name", "")
+        if p_name and p_name not in seen_parse_names:
+            unique_parses.append(p)
+            seen_parse_names.add(p_name)
+
+    custom_keys = {site.get("key") for site in config.MY_CUSTOM_SITES if site.get("key")}
+    clean_upstream_sites = [site for site in all_raw_sites if site.get("key") not in custom_keys]
+
+    compiled_sites = []
+    tg_tail_count = 0
+
+    # 🎯 5. 逐个站点二次清洗与格式校验
+    for site in clean_upstream_sites:
+        name = site.get("name", "")
+        if any(kw in name for kw in block_keywords) or any(mkw in name for mkw in block_malicious_keywords):
+            continue
+
+        for char in ['丨', '┃', ' ']: name = name.strip(char)
+        name = re.sub(r'\s+', ' ', name)
+        if config.MY_TG_SUFFIX in name:
+            tg_tail_count += 1
+            if tg_tail_count > 5: name = name.replace(config.MY_TG_SUFFIX, "").strip()
+
+        if not name.startswith(config.LOGO_PREFIX):
+            name = f"{config.LOGO_PREFIX} {name}"
+
+        for src_word, dst_word in config.MY_NAME_REPLACEMENTS.items():
+            name = name.replace(src_word, dst_word)
+
+        site["name"] = name
+
+        # 路径清洗补丁
+        api_field = site.get("api", "")
+        if isinstance(api_field, str):
+            for pattern, target in config.PATH_REPLACEMENTS.items():
+                api_field = re.sub(pattern, target, api_field)
+            site["api"] = api_field
+
+        ext_field = site.get("ext", "")
+        if isinstance(ext_field, str):
+            for pattern, target in config.PATH_REPLACEMENTS.items():
+                ext_field = re.sub(pattern, target, ext_field)
+            site["ext"] = ext_field
+        elif isinstance(ext_field, dict):
+            try:
+                ext_str = json.dumps(ext_field, ensure_ascii=False)
+                for pattern, target in config.PATH_REPLACEMENTS.items():
+                    ext_str = re.sub(pattern, target, ext_str)
+                site["ext"] = json.loads(ext_str)
+            except Exception:
+                pass
+
+        if "PanWebShare" in site.get("api", ""):
+            site["api"] = "csp_PanWebShare"
+            site["changeable"] = 1
+            if "jar" in site: site.pop("jar")
+
+        if site.get("ext") == {}: site["ext"] = ""
+        compiled_sites.append(site)
+
+    bucket_map = {category: [] for category in config.CATEGORY_RULES.keys()}
+    bucket_map["综合"] = []
+    bucket_map["福利"] = []
+
+    # 读取搜索屏蔽规则配置
+    no_search_kw = getattr(config, "NO_SEARCH_KEYWORDS", [])
+    no_search_keys = getattr(config, "NO_SEARCH_KEYS", [])
+    no_quick_keys = getattr(config, "NO_QUICK_SEARCH_KEYS", [])
+
+    for site in compiled_sites:
+        s_key = site.get("key", "")
+        s_name = site.get("name", "")
+
+        # 自动化搜索控制打标
+        if any(kw in s_name for kw in no_search_kw) or (s_key in no_search_keys):
+            site["searchable"] = 0
             
-            if "｜Tg：@huliys9" in raw_name:
-                tg_tail_count += 1
-                if tg_tail_count > 5: raw_name = raw_name.replace("｜Tg：@huliys9", "").strip()
-            elif "｜Tg:@huliys9" in raw_name:
-                tg_tail_count += 1
-                if tg_tail_count > 5: raw_name = raw_name.replace("｜Tg:@huliys9", "").strip()
+        if s_key in no_quick_keys:
+            site["quickSearch"] = 0
 
-            if "ext" in site and site["ext"] == {}:
-                site["ext"] = ""
+        if s_key == config.HOT_VIDEO_KEY:
+            site["name"] = config.HOT_VIDEO_SITE_NAME
+            site["category"] = "综合"
+            bucket_map["综合"].insert(0, site)
+            continue
+        elif "豆瓣" in s_name and "首页" in s_name:
+            site["name"] = f"{config.LOGO_PREFIX} 豆瓣 • 首页"
+            site["category"] = "综合"
+            site["searchable"] = 0
+            bucket_map["综合"].append(site)
+            continue
+        elif s_key == "AQY":
+            site["name"] = f"{config.LOGO_PREFIX} 爱奇艺 {config.MY_TG_SUFFIX}"
 
-            if isinstance(s_api, str) and "PanWebShare" in s_api:
-                site["api"] = "csp_PanWebShare"
-                if "jar" in site:
-                    site.pop("jar")
+        is_guazi = "瓜子" in s_name or s_key == "GZ"
+        is_nsfw = False if is_guazi else ("🔞" in s_name or "色播" in s_name or "av" in s_key.lower() or "瓜" in s_name or "爆料" in s_name or "chat" in s_key.lower() or "cam" in s_key.lower() or "panda" in s_key.lower() or "video" in s_key.lower() or "md" in s_key.lower())
+        
+        if is_nsfw:
+            site["category"] = "福利"
+            bucket_map["福利"].append(site)
+            continue
 
-            if is_nsfw_content(raw_name, s_key):
-                print(f"🛡️ 【绿色安全阻断】已从站点列表中强行剔除包含敏感词的线路: {raw_name}")
-                continue
-
-            is_target_rebo_main = (s_key == "热播影视")
-
-            if is_target_rebo_main:
-                site["name"] = "热播 • APP｜此接口非原创，合并自海豚佬 and 鱼佬接口，感谢两位大佬的付出，如有侵权，联系删除｜@huliys9"
-                site["category"] = "综合"
-                block_1_rebo.append(site)
-            elif "豆瓣" in raw_name and "首页" in raw_name:
-                site["name"] = "🦋 豆瓣 • 首页"
-                site["category"] = "综合"
+        matched_category = None
+        for category, keywords in config.CATEGORY_RULES.items():
+            if any(kw in s_name or (kw in s_key.lower() if s_key else False) for kw in keywords):
+                matched_category = category
+                break
+        
+        if matched_category:
+            site["category"] = matched_category
+            if matched_category in ["少儿", "音乐"] or "dj" in s_name.lower():
                 site["searchable"] = 0
-                block_2_yingshi.append(site)
-            elif "短剧" in raw_name or "剧场" in raw_name:
-                if "dj" in raw_name.lower() or "dj" in s_key.lower():
-                    if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
-                    site["name"] = raw_name
-                    site["category"] = "音乐"
-                    site["searchable"] = 0
-                    block_8_yinyue.append(site)
-                else:
-                    if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
-                    site["name"] = raw_name
-                    site["category"] = "短剧"
-                    site["genre"] = "shortdrama"
-                    block_3_duanju.append(site)
-            elif "动漫" in raw_name or "新番" in raw_name or "anime" in s_key.lower() or "a1" in raw_name.lower():
-                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
-                site["name"] = raw_name
-                site["category"] = "动漫"
-                block_4_dongman.append(site)
-            elif "磁力" in raw_name or "索" in raw_name or "盘" in raw_name or "云盘" in raw_name or "4k" in raw_name.lower():
-                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
-                site["name"] = raw_name
-                site["category"] = "网盘/磁力"
-                if "PanWebShare" in site.get("api", ""):
-                    site["changeable"] = 1
-                block_5_cili.append(site)
-            elif "体育" in raw_name or "球" in raw_name or "直播" in raw_name:
-                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
-                site["name"] = raw_name
-                site["category"] = "体育/直播"
-                block_6_tiyu.append(site)
-            elif "少儿" in raw_name or "课堂" in raw_name or "教学" in raw_name or "教育" in raw_name:
-                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
-                site["name"] = raw_name
-                site["category"] = "少儿"
-                site["searchable"] = 0
-                block_7_shaoer.append(site)
-            elif "音乐" in raw_name or "网易云" in raw_name or "听书" in raw_name or "唱会" in raw_name or "fm" in raw_name.lower() or "相声" in raw_name or "小品" in raw_name or "戏曲" in raw_name or "推送" in raw_name or "配置" in raw_name or "版本" in raw_name or "本地" in raw_name or "dj" in raw_name.lower() or "dj" in s_key.lower():
-                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
-                site["name"] = raw_name
-                if "音乐" in raw_name or "网易云" in raw_name or "听书" in raw_name or "fm" in raw_name.lower() or "dj" in raw_name.lower() or "dj" in s_key.lower():
-                    site["category"] = "音乐"
-                else:
-                    site["category"] = "综合"
-                site["searchable"] = 0
-                block_8_yinyue.append(site)
-            else:
-                if not raw_name.startswith("🦋"): raw_name = f"🦋 {raw_name}"
-                site["name"] = raw_name
-                site["category"] = "综合"
-                block_2_yingshi.append(site)
+            bucket_map[matched_category].append(site)
+        else:
+            site["category"] = "综合"
+            bucket_map["综合"].append(site)
 
-            if site.get("category") not in ["少儿", "音乐"] and "searchable" not in site:
+        if site.get("category") not in ["少儿", "音乐"] and "searchable" not in site:
+            site["searchable"] = 1
+
+    ordered_sites = []
+    for cate in ["综合", "短剧", "动漫", "体育/直播", "少儿", "音乐", "网盘/磁力", "福利"]:
+        if cate in bucket_map:
+            ordered_sites.extend(bucket_map[cate])
+    
+    # 手工源插入逻辑
+    target_pos = getattr(config, "SITE_INSERT_POS", 1)
+    hot_key = getattr(config, "HOT_VIDEO_KEY", "")
+    hot_name = getattr(config, "HOT_VIDEO_SITE_NAME", "")
+
+    hot_sites = []
+    normal_sites = []
+
+    for custom_site in config.MY_CUSTOM_SITES:
+        site = custom_site.copy()
+        s_key = site.get("key", "")
+        
+        if s_key and s_key == hot_key:
+            site["name"] = hot_name or site.get("name")
+            site["category"] = "综合"
+            hot_sites.append(site)
+        else:
+            if "searchable" not in site:
                 site["searchable"] = 1
+            normal_sites.append(site)
 
-        for site in block_2_yingshi:
-            if site.get("key") == "AQY":
-                site["name"] = "🦋 爱奇艺 ｜Tg：@huliys9"
+    for site in reversed(normal_sites):
+        idx = min(target_pos, len(ordered_sites))
+        ordered_sites.insert(idx, site)
 
-        ordered_obj["sites"] = (
-            block_1_rebo + block_2_yingshi + block_3_duanju + block_4_dongman +
-            block_6_tiyu + block_7_shaoer + block_8_yinyue + block_5_cili + block_9_fuli
+    for site in reversed(hot_sites):
+        ordered_sites.insert(0, site)
+
+    # 直播源清洗与合并
+    custom_live_names = {l.get("name", "") for l in config.MY_CUSTOM_LIVES if l.get("name")}
+    clean_base_lives = [
+        l for l in all_raw_lives
+        if l.get("name") not in custom_live_names and not any(kw in l.get("name", "") for kw in block_malicious_keywords)
+    ]
+    clean_base_lives = [l for l in clean_base_lives if not any(kw.lower() in l.get("name", "").lower() for kw in block_keywords)]
+
+    live_inserted_count = 0
+    for custom_live in config.MY_CUSTOM_LIVES:
+        l_site = custom_live.copy()
+        l_name = l_site.get("name", "")
+        if not l_name.startswith(config.LOGO_PREFIX):
+            l_name = f"{config.LOGO_PREFIX} {l_name}"
+        if config.MY_TG_SUFFIX not in l_name:
+            l_name = f"{l_name}{config.MY_TG_SUFFIX}"
+        l_site["name"] = l_name
+
+        if "🔞" in l_name:
+            clean_base_lives.append(l_site)
+        else:
+            idx = min(config.INSERT_POS + live_inserted_count, len(clean_base_lives))
+            clean_base_lives.insert(idx, l_site)
+            live_inserted_count += 1
+
+    final_obj = copy.deepcopy(json_cnb)
+    
+    if hasattr(config, "DEFAULT_LOGO_URL") and config.DEFAULT_LOGO_URL:
+        final_obj["logo"] = config.DEFAULT_LOGO_URL
+
+    final_obj.update({
+        "parses": unique_parses,
+        "sites": ordered_sites,
+        "lives": clean_base_lives
+    })
+
+    if "doh" in final_obj and isinstance(final_obj["doh"], list):
+        for doh_item in final_obj["doh"]:
+            if doh_item.get("url", "").endswith("/dns-quer"): doh_item["url"] = f"{doh_item['url']}y"
+        if not any(d.get("name") == config.ALI_DOH_CONFIG["name"] for d in final_obj["doh"]):
+            final_obj["doh"].insert(0, config.ALI_DOH_CONFIG)
+
+    if "rules" in final_obj and isinstance(final_obj["rules"], list):
+        current_rules = final_obj["rules"]
+        ad_hosts = list(config.AD_HOSTS_LIST)
+        for r in current_rules:
+            if isinstance(r, dict) and "hosts" in r:
+                for h in r["hosts"]:
+                    if h not in ad_hosts: ad_hosts.append(h)
+        js_rule = {"name": "云端高级去广告JS注入", "hosts": ad_hosts, "script": config.CUSTOM_AD_BLOCK_JS}
+        final_obj["rules"] = [js_rule] + [r for r in current_rules if r.get("name") != "云端高级去广告JS注入"]
+
+    final_obj["spider"] = config.GLOBAL_SPIDER_JAR
+
+    for site in final_obj.get("sites", []):
+        s_key = site.get("key", "")
+        if s_key in ["hajim-腾讯备", "茫茫"]:
+            site["spider"] = "./tvbox.jar"
+
+    if "lives" in final_obj and isinstance(final_obj["lives"], list):
+        clean_lives = []
+        for live in final_obj["lives"]:
+            if not live or not isinstance(live, dict) or len(live) == 0:
+                continue
+            clean_lives.append(live)
+        final_obj["lives"] = clean_lives
+
+    return final_obj
+
+# ====================================================================
+# 🔀 【双版本矩阵构建与差异下发调度中枢】
+# ====================================================================
+def generate_dashboard_html(current_token, ordered_obj):
+    """自动生成两个不同的 Dashboard：公开主页 (index.html) + 专属运维后台 (admin_888.html)"""
+    try:
+        current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+        
+        sites_list = ordered_obj.get("sites", [])
+        lives_list = ordered_obj.get("lives", [])
+        parse_cnt = len(ordered_obj.get("parses", []))
+        
+        json_files = sorted(list(config.DATA_DIR.glob("*.json")), key=lambda x: x.stat().st_mtime, reverse=True)
+        
+        show_public_details = config.get_setting("SHOW_PUBLIC_DETAILS", True)
+
+        # 👑 1. 构建【专属运维控制台】的卡片 HTML
+        admin_cards_html = ""
+        for json_file in json_files:
+            size_kb = round(json_file.stat().st_size / 1024, 2)
+            fname = json_file.name
+            is_active = current_token in fname
+            badge = '<span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">最新版本</span>' if is_active else '<span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">历史/陷阱</span>'
+            safe_key = fname.replace('.', '_').replace('-', '_')
+
+            admin_cards_html += f"""
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-slate-800">{fname}</span>
+                        {badge}
+                        <span class="text-xs text-gray-400">{size_kb} KB</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">https://hd.lytvs.top/{fname}</p>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <div class="text-right px-2">
+                        <div class="text-[10px] text-gray-400">点击/获取量</div>
+                        <div class="text-xs font-bold text-emerald-600" id="cnt_{safe_key}">-- 次</div>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="/{fname}" target="_blank" onclick="hitCount('{safe_key}')" class="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100">
+                            预览 JSON
+                        </a>
+                        <button onclick="navigator.clipboard.writeText('https://hd.lytvs.top/{fname}'); hitCount('{safe_key}'); alert('已复制该接口链接！')" class="px-3 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-700">
+                            复制链接
+                        </button>
+                    </div>
+                </div>
+            </div>
+            """
+
+        admin_html = config.DASHBOARD_HTML_TEMPLATE.format(
+            build_time=current_time,
+            site_cnt=len(sites_list),
+            live_cnt=len(lives_list),
+            parse_cnt=parse_cnt,
+            current_token=current_token,
+            file_num=len(json_files),
+            file_cards=admin_cards_html,
+            version=config.VERSION,
+            qq_group=config.MY_QQ_GROUP,
+            sites_json=json.dumps(sites_list, ensure_ascii=False),
+            lives_json=json.dumps(lives_list, ensure_ascii=False)
         )
-        print(f"🚀 【重排结算】绿色精简版洗牌算法圆满完成！热播APP精准抢占开机推荐，网盘洗白降权，豆瓣安全归位。")
-    except Exception as inner_e:
-        print(f"⚠️ 提示：美化与智能重排阶段跳过，原因: {inner_e}")
+        
+        secret_filename = "admin_888.html"
+        admin_path = config.DATA_DIR / secret_filename
+        admin_path.write_text(admin_html, encoding="utf-8")
 
-    # ====================================================================
-    # 🎯 【超高精度对比与推送板块】
-    # ====================================================================
+        # 🏡 2. 构建【粉丝/访客公开主页】的卡片 HTML & 开关控制
+        public_cards_html = ""
+        for json_file in json_files:
+            fname = json_file.name
+            if current_token in fname:
+                size_kb = round(json_file.stat().st_size / 1024, 2)
+                is_full = "全量" in fname
+                badge = '<span class="text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full font-medium">🔞 全量推荐</span>' if is_full else '<span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">🏡 客厅纯净</span>'
+                
+                display_url = f"https://hd.lytvs.top/{fname}"
+                preview_href = f"/{fname}"
+                is_masked_js = "false"
+                target_attr = "target='_blank'"
+
+                if not show_public_details:
+                    display_url = "https://hd.lytvs.top/🔒链接已受保护_请加Telegram交流群获取最新接口"
+                    preview_href = "javascript:alert('⚠️ 当前公开页已开启保护模式，请前往社群获取接口！');"
+                    is_masked_js = "true"
+                    target_attr = ""
+
+                public_cards_html += f"""
+                <div class="bg-slate-900/80 rounded-xl p-4 border border-slate-700/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="space-y-1 overflow-hidden">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-white text-sm">{"蝴蝶影视全量版" if is_full else "蝴蝶影视纯净版"}</span>
+                            {badge}
+                        </div>
+                        <p class="text-xs font-mono text-slate-400 truncate select-all">{display_url}</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <a href="{preview_href}" {target_attr} class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium border border-slate-600/60 transition">
+                            预览
+                        </a>
+                        <button onclick="copyUrl('{display_url}', {is_masked_js})" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1">
+                            <i class="fa-regular fa-copy"></i>
+                            复制链接
+                        </button>
+                    </div>
+                </div>
+                """
+
+        if show_public_details:
+            lock_display_text = "🔒 *** 点击显示"
+            lock_click_action = f"if(this.dataset.revealed==='true'){{this.innerText='🔒 *** 点击显示'; this.dataset.revealed='false';}}else{{this.innerText='{current_token}'; this.dataset.revealed='true';}}"
+        else:
+            lock_display_text = "🔒 加群获取"
+            lock_click_action = f"alert('⚠️ 当前公开页已隐藏密锁！请前往 Telegram群组【@tvshare23】或 Telegram 频道获取。');"
+
+        tg_channel_clean = config.MY_PROMO_CHANNEL.replace("@", "").strip()
+
+        donate_qr_url = config.get_setting("DONATE_QR_URL", "").strip()
+        donate_notice_text = config.get_setting("DONATE_NOTICE_TEXT", "☕ 如果觉得本专线对你有帮助，欢迎请作者喝杯咖啡支持服务器与域名续费～").strip()
+
+        if donate_qr_url:
+            donate_section_html = f"""
+            <div class="bg-slate-900/60 border border-slate-700/60 rounded-xl p-4 text-center space-y-3">
+                <p class="text-xs text-slate-300">{donate_notice_text}</p>
+                <button onclick="toggleDonate()" class="px-4 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 shadow-lg">
+                    <i class="fa-solid fa-heart text-rose-500"></i>
+                    赞赏支持作者 / 展开收款码
+                </button>
+                <div id="donate_qr_box" class="hidden pt-2 flex flex-col items-center justify-center">
+                    <img src="{donate_qr_url}" alt="赞赏码" class="w-48 h-48 rounded-xl border-2 border-rose-500/40 shadow-2xl object-cover">
+                    <p class="text-[10px] text-slate-500 mt-2">感谢您的认可与支持！</p>
+                </div>
+            </div>
+            """
+        else:
+            donate_section_html = ""
+
+        marquee_text = config.get_setting(
+            "MARQUEE_NOTICE_TEXT", 
+            "📢 欢迎使用蝴蝶影视专属缝合矩阵！本专线已完成全量广告清洗与无损极速重排，建议加社群获取最新变动！"
+        ).strip()
+
+        footer_text = config.get_setting(
+            "FOOTER_TEXT", 
+            "© 2026 蝴蝶影视 · Powered by Serverless Matrix Architecture & Cloudflare Pages"
+        ).strip()
+
+        public_html = config.PUBLIC_INDEX_HTML_TEMPLATE.format(
+            build_time=current_time,
+            site_cnt=len(sites_list),
+            live_cnt=len(lives_list),
+            parse_cnt=parse_cnt,
+            lock_display_text=lock_display_text,
+            lock_click_action=lock_click_action,
+            file_cards=public_cards_html,
+            donate_section_html=donate_section_html,
+            marquee_text=marquee_text,
+            footer_text=footer_text,
+            version=config.VERSION,
+            qq_group=config.MY_QQ_GROUP,
+            promo_channel=config.MY_PROMO_CHANNEL,
+            tg_channel_clean=tg_channel_clean
+        )
+
+        public_index_path = config.DATA_DIR / "index.html"
+        public_index_path.write_text(public_html, encoding="utf-8")
+
+        log_success(f"蝴蝶影视双前端 Dashboard 成功生成！\n  👉 粉丝公开主页: datas/index.html\n  👑 专属运维后台: datas/{secret_filename}")
+        
+    except Exception as e:
+        log_error(f"生成 Dashboard 页面崩溃: {e}", exc_info=True)
+
+
+def build_and_dispatch_matrix(ordered_obj, current_token, full_out_name, clean_out_name, is_new_token_gen):
+    """构建多通道分流，精准比对 Diff 并下发变更明细快报"""
+    full_version_obj = copy.deepcopy(ordered_obj)
+    full_version_obj["notice"] = config.WELCOME_NOTICE_FULL + config.THANKS_WARNING
+    full_version_obj["wallpaper"] = config.WALLPAPER_FULL
+    
+    full_final_out = {"notice": full_version_obj.pop("notice")}
+    full_final_out.update(full_version_obj)
+
+    clean_version_obj = copy.deepcopy(ordered_obj)
+    clean_version_obj["notice"] = config.WELCOME_NOTICE_CLEAN + config.THANKS_WARNING
+    clean_version_obj["wallpaper"] = config.WALLPAPER_CLEAN
+    
+    # 🎯 动态获取最新的 NSFW 过滤词
+    nsfw_keywords = config.get_nsfw_keywords()
+
+   # 🎯 动态获取最新的 NSFW 过滤词与放行白名单词
+    nsfw_keywords = config.get_nsfw_keywords()
+    white_list_keywords = config.get_allow_nsfw_keywords()
+
+    clean_sites = []
+    for s in clean_version_obj.get("sites", []):
+      s_name = s.get("name", "")
+      s_cat = s.get("category", "")
+      s_key = s.get("key", "").lower()
+
+      # 1. 如果命中允许放行的白名单关键词（例如“易发”）
+      if any(wk in s_name for wk in white_list_keywords):
+        site_copy = copy.deepcopy(s)
+        # 强行清洗掉 🔞 符号
+        site_copy["name"] = site_copy["name"].replace("🔞", "").strip()
+        clean_sites.append(site_copy)
+      # 2. 如果未命中白名单，且包含 NSFW 敏感词，则剔除
+      elif any(
+          kw in s_name or kw in s_cat or kw in s_key for kw in nsfw_keywords
+      ):
+        continue
+      # 3. 普通干净线路直接保留
+      else:
+        clean_sites.append(s)
+
+    clean_lives = []
+    for l in clean_version_obj.get("lives", []):
+      l_name = l.get("name", "")
+
+      # 1. 直播源命中放行白名单
+      if any(wk in l_name for wk in white_list_keywords):
+        live_copy = copy.deepcopy(l)
+        live_copy["name"] = live_copy["name"].replace("🔞", "").strip()
+        clean_lives.append(live_copy)
+      # 2. 否则，如果包含敏感词，则剔除
+      elif any(kw in l_name for kw in nsfw_keywords):
+        continue
+      # 3. 普通直播源保留
+      else:
+        clean_lives.append(l)
+
+    clean_version_obj["sites"] = clean_sites
+    clean_version_obj["lives"] = clean_lives
+    
+    clean_final_out = {"notice": clean_version_obj.pop("notice")}
+    clean_final_out.update(clean_version_obj)
+
+    full_output_path = config.DATA_DIR / full_out_name
+    clean_output_path = config.DATA_DIR / clean_out_name
+
     tg_token = os.getenv("TG_TOKEN")
     tg_chat_id = os.getenv("TG_CHAT_ID")
-    repo_info = os.getenv("GITHUB_REPOSITORY", "GodLike631/Ly_live")
+    repo_info = os.getenv("GITHUB_REPOSITORY", "Godlike/Ly")
     branch_info = os.getenv("GITHUB_REF_NAME", "main")
     
-    raw_github_url = f"https://raw.githubusercontent.com/{repo_info}/{branch_info}/datas/{output_filename}"
-    sub_url = f"{GH_PROXY}{raw_github_url}" if GH_PROXY else raw_github_url
+    full_raw_url = f"https://raw.githubusercontent.com/{repo_info}/refs/heads/{branch_info}/datas/{full_out_name}"
+    clean_raw_url = f"https://raw.githubusercontent.com/{repo_info}/refs/heads/{branch_info}/datas/{clean_out_name}"
+    
+    full_sub_url = f"{config.GITHUB_PROXY}{full_raw_url}" if config.GITHUB_PROXY else full_raw_url
+    clean_sub_url = f"{config.GITHUB_PROXY}{clean_raw_url}" if config.GITHUB_PROXY else clean_raw_url
+    
     current_time = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+    is_password_changed = False
+    old_file_name = ""
+    
+    if config.TRACKER_PATH.exists():
+        old_file_name = config.TRACKER_PATH.read_text(encoding='utf-8').strip()
+    if old_file_name != full_out_name and old_file_name != "":
+        is_password_changed = True
 
-    if is_new_token_generated and tg_token and tg_chat_id:
+    if is_password_changed or is_new_token_gen:
+        pwd_msg = config.TG_PWD_MSG_TEMPLATE.format(
+            current_time=current_time, current_token=current_token,
+            full_sub_url=full_sub_url, clean_sub_url=clean_sub_url
+        )
+        send_telegram_request(tg_token, tg_chat_id, pwd_msg)
+    else:
         try:
-            pwd_msg = f"🔔 *老杨TV · 纯净版全新月份硬核密码锁发布* 🔔\n\n"
-            pwd_msg += f"📅 *生效时间*：{(datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime('%Y年%m月01日')} (北京时间)\n"
-            pwd_msg += f"🔑 *本月全新纯净版密锁*：`{current_token}`\n\n"
-            pwd_msg += f"🚀 *重要提示*：\n旧接口已全线开启【金蝉脱壳】大轰炸提示，原纯净版链接已彻底作废断流！\n\n"
-            pwd_msg += f"🔗 *最新纯净版订阅链接 (点击即可自动复制)*：\n`{sub_url}`\n\n"
-            pwd_msg += f"👑 纯净版链接已在后台全自动换锁，请及时更新电视端接口。若电视端遇到断流请尝试重启软件或前往频道（@huliys9）获取最新支持！"
+            old_sites, old_lives = set(), set()
+            old_file_path = config.DATA_DIR / old_file_name
+            if old_file_path.exists():
+                old_data = json.loads(old_file_path.read_text(encoding='utf-8'))
+                old_sites = {s.get("name", "").strip() for s in old_data.get("sites", []) if s.get("name")}
+                old_lives = {l.get("name", "").strip() for l in old_data.get("lives", []) if l.get("name")}
 
-            pwd_url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
-            pwd_data = urllib.parse.urlencode({"chat_id": tg_chat_id, "parse_mode": "Markdown", "text": pwd_msg}).encode("utf-8")
-            pwd_req = urllib.request.Request(pwd_url, data=pwd_data)
-            with urllib.request.urlopen(pwd_req, timeout=15) as response:
-                print("🚀 [专属密码通道] 纯净版每月1号新密锁独立通知发送成功！")
-        except Exception as pwd_err:
-            print(f"❌ [专属密码通道] 纯净版发送通知失败: {pwd_err}")
+            new_sites = {s.get("name", "").strip() for s in full_final_out.get("sites", []) if s.get("name")}
+            new_lives = {l.get("name", "").strip() for l in full_final_out.get("lives", []) if l.get("name")}
 
-    try:
-        old_sites_names, old_lives_names = set(), set()
-        if os.path.exists(tracker_path):
-            with open(tracker_path, 'r', encoding='utf-8') as f:
-                old_file_name = f.read().strip()
-            old_file_path = f"datas/{old_file_name}"
-            if os.path.exists(old_file_path):
-                with open(old_file_path, 'r', encoding='utf-8') as f:
-                    old_data = json.load(f)
-                    old_sites_names = {s.get("name", "").strip() for s in old_data.get("sites", []) if s.get("name")}
-                    old_lives_names = {l.get("name", "").strip() for l in old_data.get("lives", []) if l.get("name")}
+            added_sites, del_sites = sorted(list(new_sites - old_sites)), sorted(list(old_sites - new_sites))
+            added_lives, del_lives = sorted(list(new_lives - old_lives)), sorted(list(old_lives - new_lives))
 
-        new_sites_names = {s.get("name", "").strip() for s in ordered_obj.get("sites", []) if s.get("name")}
-        new_lives_names = {l.get("name", "").strip() for l in ordered_obj.get("lives", []) if l.get("name")}
+            if added_sites or del_sites or added_lives or del_lives:
+                msg_lines = ["📝 *【 变动明细预览 】*", "📊 *━━━━━━━━━━━━━━*"]
+                if added_sites or del_sites:
+                    msg_lines.append("📺 *【点播线路变动】*")
+                    if added_sites:
+                        msg_lines.append("➕ *新增点播*：")
+                        msg_lines.extend([f"  🟢 {name}" for name in added_sites[:config.TG_MAX_DISPLAY]])
+                        if len(added_sites) > config.TG_MAX_DISPLAY: msg_lines.append(f"  ...等共 {len(added_sites)} 个源")
+                    if del_sites:
+                        if added_sites: msg_lines.append("")
+                        msg_lines.append("➖ *剔除点播*：")
+                        msg_lines.extend([f"  🔴 {name}" for name in del_sites[:config.TG_MAX_DISPLAY]])
+                        if len(del_sites) > config.TG_MAX_DISPLAY: msg_lines.append(f"  ...等共 {len(del_sites)} 个源")
+                    msg_lines.append("📊 *━━━━━━━━━━━━━━*")
+                if added_lives or del_lives:
+                    if len(msg_lines) > 2: msg_lines.append("")
+                    msg_lines.append("📡 *【直播源站变动】*")
+                    if added_lives:
+                        msg_lines.append("➕ *新增直播*：")
+                        msg_lines.extend([f"  🟢 {name}" for name in added_lives[:config.TG_MAX_DISPLAY]])
+                        if len(added_lives) > config.TG_MAX_DISPLAY: msg_lines.append(f"  ...等共 {len(added_lives)} 个源")
+                    if del_lives:
+                        if added_lives: msg_lines.append("")
+                        msg_lines.append("➖ *剔除直播*：")
+                        msg_lines.extend([f"  🔴 {name}" for name in del_lives[:config.TG_MAX_DISPLAY]])
+                        if len(del_lives) > config.TG_MAX_DISPLAY: msg_lines.append(f"  ...等共 {len(del_lives)} 个源")
+                    msg_lines.append("📊 *━━━━━━━━━━━━━━*")
 
-        added_sites = sorted(list(new_sites_names - old_sites_names))
-        deleted_sites = sorted(list(old_sites_names - new_sites_names))
-        added_lives = sorted(list(new_lives_names - old_lives_names))
-        deleted_lives = sorted(list(old_lives_names - new_lives_names))
+                full_msg = config.TG_UPDATE_MSG_TEMPLATE.format(
+                    current_time=current_time, 
+                    current_token=current_token,
+                    detail_msg="\n".join(msg_lines),
+                    full_sub_url=full_sub_url, 
+                    clean_sub_url=clean_sub_url
+                )
+                send_telegram_request(tg_token, tg_chat_id, full_msg)
 
-        if added_sites or deleted_sites or added_lives or deleted_lives:
-            msg_lines = ["📝 *【 变动明细预览 】*", "📊 *━━━━━━━━━━━━━━━*"]
-            
-            if added_sites or deleted_sites:
-                msg_lines.append("📺 *【点播线路变动】*")
-                if added_sites:
-                    msg_lines.append("➕ *新增点播*：")
-                    msg_lines.extend([f"🟢 {name}" for name in added_sites])
-                if deleted_sites:
-                    if added_sites: msg_lines.append("")
-                    msg_lines.append("➖ *剔除点播*：")
-                    msg_lines.extend([f"🔴 {name}" for name in deleted_sites])
-                msg_lines.append("📊 *━━━━━━━━━━━━━━━*")
-                
-            if added_lives or deleted_lives:
-                if len(msg_lines) > 2: msg_lines.append("")
-                msg_lines.append("📡 *【直播源站变动】*")
-                if added_lives:
-                    msg_lines.append("➕ *新增直播*：")
-                    msg_lines.extend([f"🟢 {name}" for name in added_lives])
-                if deleted_lives:
-                    if added_lives: msg_lines.append("")
-                    msg_lines.append("➖ *剔除直播*：")
-                    msg_lines.extend([f"🔴 {name}" for name in deleted_lives])
-                msg_lines.append("📊 *━━━━━━━━━━━━━━━*")
-            
-            if tg_token and tg_chat_id:
-                detail_msg = "\n".join(msg_lines)
-                
-                full_msg = f"🔔 *老杨TV 纯净版接口变更明细通知* 🔔\n\n"
-                full_msg += f"📅 *更新时间*：{current_time} (北京时间)\n"
-                full_msg += f"🚀 *变动说明*：检测到上游数据源更新或手工区线路调整，新接口配置已全自动编译上链！\n\n"
-                full_msg += f"{detail_msg}\n\n"
-                full_msg += f"🔗 【 订阅链接 】 (点击即可自动复制)：\n`{sub_url}`\n\n"
-                full_msg += f"👑 纯净版链接已在后台无缝更新，更新接口即可，若电视端遇到断流请尝试重启软件或及时前往频道（@huliys9）获取当前最新密码锁！"
-
-                url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
-                data = urllib.parse.urlencode({"chat_id": tg_chat_id, "parse_mode": "Markdown", "text": full_msg}).encode("utf-8")
-                req = urllib.request.Request(url, data=data)
- 
+                # 🎯 记录 Changelog 到 datas/changelog.json
                 try:
-                    with urllib.request.urlopen(req, timeout=15) as response:
-                        print("🚀 Telegram 纯净版更新通知直发成功！")
-                except Exception as net_err:
-                    print(f"❌ Telegram 推送失败: {net_err}")
+                    logs_detail = []
+                    if added_sites: logs_detail.append("🟢 新增点播: " + ", ".join(added_sites[:8]))
+                    if del_sites:   logs_detail.append("🔴 剔除点播: " + ", ".join(del_sites[:8]))
+                    if added_lives: logs_detail.append("📡 新增直播: " + ", ".join(added_lives[:8]))
+                    if del_lives:   logs_detail.append("❌ 剔除直播: " + ", ".join(del_lives[:8]))
+
+                    changelog_path = config.DATA_DIR / "changelog.json"
+                    history_logs = []
+                    if changelog_path.exists():
+                        try:
+                            history_logs = json.loads(changelog_path.read_text(encoding='utf-8'))
+                        except Exception:
+                            history_logs = []
+
+                    new_log_entry = {
+                        "time": current_time,
+                        "version": config.VERSION,
+                        "detail": "\n".join(logs_detail)
+                    }
+
+                    history_logs.insert(0, new_log_entry)
+                    history_logs = history_logs[:3]
+                    changelog_path.write_text(json.dumps(history_logs, ensure_ascii=False, indent=2), encoding='utf-8')
+                    log_success("✨ 变动日志已同步更新写入 datas/changelog.json")
+                except Exception as log_err:
+                    log_error(f"写入 changelog.json 失败: {log_err}")
             else:
-                print("⚠️ 提示：未检测到绑定的 TG_TOKEN 或 TG_CHAT_ID，跳过通知发送。")
-        else:
-            print("⏭️ 没有任何中文线路名录实际变动，智能拦截通知流程。")
-            
-    except Exception as diff_err:
-        print(f"⚠️ 对比变动异常: {diff_err}")
+                log_diff("蝴蝶名录内容完全等价，智能拦截重复变更广播。")
+        except Exception as e:
+            log_error(f"比对 Diff 变动逻辑发生致命故障: {e}")
 
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(ordered_obj, f, ensure_ascii=False, indent=4)
+    full_output_path.write_text(json.dumps(full_final_out, ensure_ascii=False, indent=4), encoding='utf-8')
+    clean_output_path.write_text(json.dumps(clean_final_out, ensure_ascii=False, indent=4), encoding='utf-8')
+    config.TRACKER_PATH.write_text(full_out_name, encoding='utf-8')
+
+    # 🎯 多格式同步导出 (.m3u 与 .txt 直播订阅)
+    try:
+        m3u_lines = ["#EXTM3U"]
+        txt_lines = []
         
-    with open(tracker_path, 'w', encoding='utf-8') as f:
-        f.write(output_filename)
-    print(f"🎉 纯净版接口编译并保存成功：{output_path}")
+        for live in full_final_out.get("lives", []):
+            if not isinstance(live, dict): continue
+            gname = live.get("group", live.get("name", "未分类"))
+            channels = live.get("channels", [])
+            
+            if channels and isinstance(channels, list):
+                for ch in channels:
+                    cname = ch.get("name", "")
+                    urls = ch.get("urls", [])
+                    for url in urls:
+                        m3u_lines.append(f'#EXTINF:-1 group-title="{gname}",{cname}')
+                        m3u_lines.append(url)
+                        txt_lines.append(f"{cname},{url}")
+            elif live.get("url"):
+                cname = live.get("name", "")
+                url = live.get("url", "")
+                m3u_lines.append(f'#EXTINF:-1 group-title="自定义直播",{cname}')
+                m3u_lines.append(url)
+                txt_lines.append(f"{cname},{url}")
 
-except Exception as e:
-    print(f"❌ 严重错误：最后的本地渲染失败: {e}")
+        m3u_out_path = config.DATA_DIR / "live.m3u"
+        txt_out_path = config.DATA_DIR / "live.txt"
+        
+        m3u_out_path.write_text("\n".join(m3u_lines), encoding='utf-8')
+        txt_out_path.write_text("\n".join(txt_lines), encoding='utf-8')
+        log_success("✨ 多格式直播源已同步导出为 live.m3u 和 live.txt")
+    except Exception as e:
+        log_error(f"导出 M3U/TXT 发生异常: {e}")
+    
+    site_cnt = len(full_final_out.get("sites", []))
+    live_cnt = len(full_final_out.get("lives", []))
+    parse_cnt = len(full_final_out.get("parses", []))
+    
+    generate_dashboard_html(current_token, full_final_out)
 
-if not os.path.exists(lock_file_path) or "-" not in (open(lock_file_path, 'r', encoding='utf-8').read() if os.path.exists(lock_file_path) else ""):
-    with open(lock_file_path, 'w', encoding='utf-8') as f:
-        f.write(f"{current_month}-{current_token}")
+    return site_cnt, live_cnt, parse_cnt, full_output_path.stat().st_size
+
+# ====================================================================
+# 🚀 【程序统一总调度入口】
+# ====================================================================
+def main():
+    start_time = time.time()
+    try:
+        log_info(f"====================================================")
+        log_info(f"蝴蝶影视 自动编译核心架构工程架设流 V{config.VERSION}")
+        log_info(f"编译流构建序列日期: {config.BUILD_DATE}")
+        log_info(f"====================================================")
+        
+        current_token, full_out_name, clean_out_name, is_new_token_gen = manage_monthly_token()
+        execute_trap_boom(full_out_name, clean_out_name)
+        ordered_obj = object_level_wash_and_compile()
+        
+        site_cnt, live_cnt, parse_cnt, file_size = build_and_dispatch_matrix(
+            ordered_obj, current_token, full_out_name, clean_out_name, is_new_token_gen
+        )
+        
+        today = datetime.datetime.now()
+        if not config.LOCK_FILE_PATH.exists() or "-" not in config.LOCK_FILE_PATH.read_text(encoding='utf-8'):
+            config.LOCK_FILE_PATH.write_text(f"{today.month}-{current_token}", encoding='utf-8')
+            
+        elapsed_time = time.time() - start_time
+        log_success(f"蝴蝶影视 编译总流水线平稳运行结束！【编译快报总览】:")
+        print(f"\033[94m"
+              f"  ⏱️  Compile Time : {elapsed_time:.2f} sec\n"
+              f"  📺 Total Sites   : {site_cnt} channels\n"
+              f"  📡 Total Lives   : {live_cnt} channels\n"
+              f"  🥇 Total Parses  : {parse_cnt} objects\n"
+              f"  💾 Output Weight : {file_size / 1024 / 1024:.2f} MB"
+              f"\033[0m")
+              
+    except Exception as e:
+        log_critical(f"核心编译主总线遭到未知突发崩溃: {e}", exc_info=True)
+
+if __name__ == "__main__":
+    main()
