@@ -15,11 +15,11 @@ from base.spider import Spider
 class Spider(Spider):
 
     def init(self, extend=""):
-        self.site_url = "https://www.4kvm.top"
+        self.site_url = "https://www.4kvm.net"
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Referer': self.site_url,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
         }
         self.categories = [
@@ -29,7 +29,7 @@ class Spider(Spider):
         ]
         self._filters_cache = None
 
-        # 自定义图片/公告卡片配置
+        # 自定义公告卡片配置
         self.custom_card = {
             "vod_id": "custom_notice_01",
             "vod_name": "📢 官方交流群",
@@ -37,9 +37,17 @@ class Spider(Spider):
             "vod_remarks": "关注群组"
         }
 
+    def _insert_custom_card(self, video_list, target_index=2):
+        """将自定义卡片安全地插入到视频列表中间"""
+        if not video_list:
+            return video_list
+        # 如果列表长度充足，插在指定位置（默认第3位）；不够则附在末尾
+        idx = min(target_index, len(video_list))
+        video_list.insert(idx, self.custom_card)
+        return video_list
+
     # ================= 动态筛选解析 =================
     def _fetch_filters_for_classify(self, tid):
-        """请求 /filter?classify=tid，解析页面筛选区域，返回该分类的筛选列表"""
         url = f"{self.site_url}/filter?classify={tid}"
         resp = self.fetch(url, headers=self.headers)
         if not resp:
@@ -55,7 +63,6 @@ class Spider(Spider):
             if not first_text.startswith('全部'):
                 continue
             group_name = first_text.replace('全部', '', 1).strip()
-            # 从非全部的链接中提取参数键
             param_key = None
             for a in links[1:]:
                 href = a.get('href', '')
@@ -67,9 +74,7 @@ class Spider(Spider):
                         break
                 if param_key:
                     break
-            if not param_key:
-                continue
-            if param_key in ('sort_by', 'order'):
+            if not param_key or param_key in ('sort_by', 'order'):
                 continue
             options = []
             for a in links:
@@ -77,9 +82,7 @@ class Spider(Spider):
                 href = a.get('href', '')
                 parsed = urllib.parse.urlparse(href)
                 qs = urllib.parse.parse_qs(parsed.query)
-                val = ''
-                if param_key in qs:
-                    val = qs[param_key][0] if qs[param_key] else ''
+                val = qs[param_key][0] if param_key in qs and qs[param_key] else ''
                 if text.startswith('全部'):
                     val = ''
                 options.append({"n": text, "v": val})
@@ -100,7 +103,6 @@ class Spider(Spider):
             groups = self._fetch_filters_for_classify(tid)
             if groups:
                 filters[tid] = groups
-        # 为没有筛选的分类复用电影分类的筛选
         if "1" in filters:
             if "3" not in filters:
                 filters["3"] = filters["1"]
@@ -116,7 +118,6 @@ class Spider(Spider):
         video_list = []
         if resp:
             soup = BeautifulSoup(resp.text, 'html.parser')
-            # 使用唯一卡片容器
             cards = soup.select('div[data-vod-id]')
             for card in cards[:20]:
                 a = card.select_one('a.block[href^="/play/"]')
@@ -147,8 +148,8 @@ class Spider(Spider):
                     "vod_remarks": vod_remarks
                 })
 
-        # 在首页海报墙第 1 个位置插入自定义海报图
-        video_list.insert(0, self.custom_card)
+        # 混入海报中间（第 3 个卡片位置）
+        video_list = self._insert_custom_card(video_list, target_index=2)
 
         return {"class": self.categories, "list": video_list, "filters": self._get_all_filters()}
 
@@ -203,11 +204,11 @@ class Spider(Spider):
                 "vod_remarks": vod_remarks
             })
 
-        # 仅在分类页第 1 页插入自定义卡片
+        # 仅在第 1 页插入到海报墙第 3 位
         if page == 1:
-            video_list.insert(0, self.custom_card)
+            video_list = self._insert_custom_card(video_list, target_index=2)
 
-        # 分页处理
+        # 分页逻辑
         pagecount = page
         page_text = soup.find(string=re.compile(r'共\s*\d+\s*页'))
         if page_text:
@@ -236,7 +237,7 @@ class Spider(Spider):
             return {"list": []}
         vod_id = ids[0]
 
-        # 拦截自定义卡片点击请求，响应自定义详情，防止接口报错
+        # 拦截自定义卡片点击
         if vod_id == self.custom_card["vod_id"]:
             return {
                 "list": [{
@@ -260,11 +261,9 @@ class Spider(Spider):
 
         soup = BeautifulSoup(resp.text, 'html.parser')
 
-        # 标题
         title_elem = soup.select_one('h1.text-xl') or soup.select_one('h1') or soup.select_one('h2')
         vod_name = title_elem.get_text(strip=True) if title_elem else vod_id
 
-        # 图片
         vod_pic = ''
         img_elem = soup.select_one('img.w-full') or soup.select_one('img[src]')
         if img_elem:
@@ -272,7 +271,6 @@ class Spider(Spider):
             if src and not src.startswith('data:'):
                 vod_pic = src if src.startswith('http') else 'https:' + src
 
-        # 导演、主演、简介
         vod_director = ''
         vod_actor = ''
         vod_content = ''
@@ -291,7 +289,6 @@ class Spider(Spider):
             elif re.search(r'简介\s*(.+)', text, re.DOTALL):
                 vod_content = re.search(r'简介\s*(.+)', text, re.DOTALL).group(1).strip()
 
-        # ================= 分集解析 (基于 episodeManager) =================
         play_from_list = []
         play_url_list = []
 
@@ -324,7 +321,6 @@ class Spider(Spider):
                 play_from_list.append(line_name)
                 play_url_list.append('#'.join(episode_strs))
 
-        # 回退：无分集则直接播放当前页
         if not play_url_list:
             play_from_list.append('播放')
             play_url_list.append(f"播放${vod_id}")
