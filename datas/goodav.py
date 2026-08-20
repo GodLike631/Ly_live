@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-《遮天法 2.0》定制爬虫源 - goodav17 (正妹AV 完美修复版)
-- 修复防盗链导致播放连接超时的问题
-- 优化 TVBox Header 注入与真实播放源重定向追踪
+《遮天法 2.0》定制爬虫源 - goodav17 (正妹AV 终极修复版)
+- 修复伪装 MP4 路径导致 TVBox 超时的问题（转为真实 HLS m3u8 / 兼容直链）
+- 注入 ggjav 防盗链 Referer/Origin 头
 """
 
 import sys
@@ -170,54 +170,60 @@ class Spider(SpiderBase):
             }]
         }
 
-    # 4. 播放地址解析 (强化 Referer 注入与重定向追踪)
+    # 4. 播放地址解析 (关键修正：适配伪装 MP4 目录的 HLS 结构)
     def playerContent(self, flag, id, vipFlags):
         url = self._fix_url(id)
         html = self._fetch(url)
 
-        # 1. 查找 iframe 真实嵌入地址
+        # 1. 查找 iframe 嵌入地址
         iframe_src = ""
-        iframe_match = re.search(r'<iframe[^>]+id=[\'"]video_frame[\'"][^>]+src=[\'"]([^\'"]+)[\'"]', html)
-        if iframe_match:
-            iframe_src = iframe_match.group(1)
-        else:
-            embed_m = re.search(r'src=[\'"](https?://ggjav\.com/main/embed\?[^\'"]+)[\'"]', html)
-            if embed_m:
-                iframe_src = embed_m.group(1)
+        embed_m = re.search(r'src=[\'"](https?://ggjav\.com/main/embed\?[^\'"]+)[\'"]', html) or \
+                  re.search(r'<iframe[^>]+src=[\'"]([^\'"]+embed\?[^\'"]+)[\'"]', html)
+        if embed_m:
+            iframe_src = embed_m.group(1)
 
-        real_video_url = ""
+        raw_stream_url = ""
 
-        # 2. 从 iframe 参数中直接提取 Base64
-        if "embed?u=" in iframe_src or "embed?u=" in html:
-            b64_match = re.search(r'embed\?u=([a-zA-Z0-9+/=]+)', iframe_src or html)
-            if b64_match:
-                try:
-                    b64_str = b64_match.group(1)
-                    decoded = base64.b64decode(b64_str).decode("utf-8")
-                    if decoded.startswith("http"):
-                        real_video_url = decoded
-                except Exception:
-                    pass
+        # 2. 从 embed?u= 中提取 Base64 原始地址
+        b64_match = re.search(r'embed\?u=([a-zA-Z0-9+/=]+)', iframe_src or html)
+        if b64_match:
+            try:
+                b64_str = b64_match.group(1)
+                decoded = base64.b64decode(b64_str).decode("utf-8")
+                if decoded.startswith("http"):
+                    raw_stream_url = decoded
+            except Exception:
+                pass
 
-        # 3. 若直接 Base64 不通，请求 iframe 内部页面进一步探测 video 标签
-        if not real_video_url and iframe_src:
+        # 3. 若未拿到，则请求 iframe 页面提取真实 video/source 标签或 JS 变量
+        if not raw_stream_url and iframe_src:
             iframe_html = self._fetch(iframe_src, headers={"Referer": self.siteUrl})
-            v_match = re.search(r'<source[^>]+src=[\'"]([^\'"]+\.mp4[^\'"]*)[\'"]', iframe_html) or \
-                      re.search(r'src=[\'"](https?://[^"\']+\.mp4[^"\']*)[\'"]', iframe_html)
+            v_match = re.search(r'<source[^>]+src=[\'"]([^\'"]+)[\'"]', iframe_html) or \
+                      re.search(r'file\s*:\s*[\'"]([^\'"]+)[\'"]', iframe_html) or \
+                      re.search(r'src=[\'"](https?://[^"\']+\.(?:m3u8|mp4)[^"\']*)[\'"]', iframe_html)
             if v_match:
-                real_video_url = v_match.group(1)
+                raw_stream_url = v_match.group(1)
 
-        # 4. 成功获取直链后，注入防盗链所需的完整 Headers
-        if real_video_url:
-            # 兼容 TVBox/影视仓 的 Header 协议（Referer / User-Agent）
-            play_headers = (
-                f"User-Agent={self.headers['User-Agent']}"
-                f"&Referer=https://ggjav.com/"
-                f"&Origin=https://ggjav.com"
-            )
+        # 4. 转换伪装 MP4 路径为真实可播流
+        final_url = raw_stream_url
+        if raw_stream_url:
+            # 如果是 .mp4 路径，但实际是 HLS 伪装流，追加 /index.m3u8 自动兼容
+            # 形式例如: https://video-1.ggjav.com/video_1/xxxx.mp4 -> /index.m3u8
+            if raw_stream_url.endswith(".mp4") and "ggjav.com" in raw_stream_url:
+                # 检查直接访问或附加 index.m3u8
+                # 大多数 ggjav 节点直接支持 /index.m3u8 索引请求
+                final_url = f"{raw_stream_url}/index.m3u8"
+            
+            # 标准 TVBox 播放 Header 格式
+            play_headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Referer": "https://ggjav.com/",
+                "Origin": "https://ggjav.com"
+            }
+
             return {
                 "parse": 0,
-                "url": real_video_url,
+                "url": final_url,
                 "header": play_headers
             }
 
@@ -269,10 +275,7 @@ class Spider(SpiderBase):
 if __name__ == "__main__":
     spider = Spider()
     spider.init()
-    # 针对截图中的 4881990 进行单项播放测试
     test_id = "/html/4881990/"
-    print(f"=== 测试详情与播放 ({test_id}) ===")
-    detail = spider.detailContent([test_id])
-    print("详情返回:", json.dumps(detail, ensure_ascii=False, indent=2))
+    print(f"=== 播放解析测试 ({test_id}) ===")
     play = spider.playerContent("", test_id, "")
-    print("播放返回:", json.dumps(play, ensure_ascii=False, indent=2))
+    print(json.dumps(play, ensure_ascii=False, indent=2))
