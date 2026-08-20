@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-《遮天法》定制爬虫源 - goodav17
-遵循 TVBox / py-drpy 接口契约规范
+《遮天法 2.0》定制爬虫源 - goodav17 (正妹AV)
+- 适配真實分類: 無碼/人妻/巨乳/中出/OL/VR/本土等
+- 破除 17 秒試看: 自動提取 iframe 中 Base64 加密的完整 MP4 直鏈
 """
 
 import sys
 import os
 import re
 import json
-import time
 import base64
 import html as html_lib
 from urllib import parse
 import requests
 from bs4 import BeautifulSoup
 
-# 兼容 TVBox / drpy 基础类导入
 try:
     from base.spider import Spider as SpiderBase
 except ImportError:
@@ -32,28 +31,27 @@ class Spider(SpiderBase):
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1"
+            "Accept-Language": "zh-CN,zh-TW;q=0.9,zh;q=0.8,en;q=0.7",
+            "Referer": "https://goodav17.com/"
         }
 
     def init(self, extend=""):
         return True
 
     def isVideoFormat(self, url):
-        formats = [".m3u8", ".mp4", ".flv", ".mkv", ".ts", ".avi", ".mov", ".webm"]
+        formats = [".m3u8", ".mp4", ".flv", ".mkv", ".ts", ".mov"]
         return any(f in url.lower() for f in formats)
 
     def manualVideoCheck(self):
         return False
 
-    def _fetch(self, url, headers=None, timeout=10):
+    def _fetch(self, url, headers=None, timeout=12):
         h = self.headers.copy()
         if headers:
             h.update(headers)
         try:
             resp = self.session.get(url, headers=h, timeout=timeout, allow_redirects=True)
-            resp.encoding = resp.apparent_encoding or "utf-8"
+            resp.encoding = "utf-8"
             return resp.text
         except Exception:
             return ""
@@ -77,47 +75,56 @@ class Spider(SpiderBase):
     # 1. 首页分类 (homeContent)
     def homeContent(self, filter=False):
         classes = [
-            {"type_name": "全部视频", "type_id": "all"},
-            {"type_name": "最新更新", "type_id": "new"},
-            {"type_name": "热门精选", "type_id": "hot"},
-            {"type_name": "国产高清", "type_id": "1"},
-            {"type_name": "日韩精选", "type_id": "2"},
-            {"type_name": "欧美大片", "type_id": "3"}
+            {"type_name": "無碼專區", "type_id": "type_無碼"},
+            {"type_name": "本土自拍", "type_id": "local"},
+            {"type_name": "VR專區", "type_id": "vr"},
+            {"type_name": "人妻熟女", "type_id": "type_人妻"},
+            {"type_name": "巨乳美胸", "type_id": "type_巨乳"},
+            {"type_name": "OL制服", "type_id": "type_OL"},
+            {"type_name": "潮吹中出", "type_id": "type_中出"},
+            {"type_name": "可愛女友", "type_id": "type_可愛"},
+            {"type_name": "美腿美尻", "type_id": "type_美腿"},
+            {"type_name": "多P群交", "type_id": "type_多P"},
+            {"type_name": "絲襪誘惑", "type_id": "type_絲襪"},
+            {"type_name": "女僕教師", "type_id": "type_教師或家教"},
+            {"type_name": "女學生", "type_id": "type_學生"}
         ]
         return {"class": classes}
 
     # 2. 分类列表 (categoryContent)
     def categoryContent(self, tid, pg="1", filter=False, extend=None):
         pg = str(pg)
-        if tid == "all":
-            url = f"{self.siteUrl}/page/{pg}" if pg != "1" else f"{self.siteUrl}/"
-        elif tid.isdigit():
-            url = f"{self.siteUrl}/category/{tid}/page/{pg}" if pg != "1" else f"{self.siteUrl}/category/{tid}/"
+        if tid.startswith("type_"):
+            type_name = tid.replace("type_", "")
+            encoded_name = parse.quote(type_name)
+            url = f"{self.siteUrl}/type/{encoded_name}/{pg}/"
+        elif tid == "local":
+            url = f"{self.siteUrl}/local/{pg}/"
+        elif tid == "vr":
+            url = f"{self.siteUrl}/vr/{pg}/"
         else:
-            url = f"{self.siteUrl}/{tid}/page/{pg}" if pg != "1" else f"{self.siteUrl}/{tid}/"
+            encoded_name = parse.quote(tid)
+            url = f"{self.siteUrl}/type/{encoded_name}/{pg}/"
 
         html = self._fetch(url)
         soup = BeautifulSoup(html, "html.parser")
         videos = []
-
-        # 通用匹配：卡片容器及 a 标签
-        items = soup.select(".video-item, .item, .movie-item, article, .post") or soup.find_all("a", href=re.compile(r"/(?:video|vod|play|watch|\d+)/"))
         seen = set()
 
-        for item in items:
-            a_tag = item if item.name == "a" else item.find("a")
+        for item in soup.select(".movie, .movie_image"):
+            a_tag = item.find("a") if item.name != "a" else item
             if not a_tag:
                 continue
 
             href = a_tag.get("href", "")
-            if not href or href in seen or href == self.siteUrl or href == f"{self.siteUrl}/":
+            if not href or href in seen or "/html/" not in href:
                 continue
 
-            img_tag = item.find("img") if item.name != "a" else a_tag.find("img")
-            name = a_tag.get("title") or (img_tag.get("alt", "") if img_tag else "") or a_tag.get_text(strip=True)
-            pic = (img_tag.get("data-original") or img_tag.get("data-src") or img_tag.get("src", "")) if img_tag else ""
+            img = item.find("img")
+            name = a_tag.get_text(strip=True) or (img.get("alt", "") if img else "")
+            pic = (img.get("large_image") or img.get("small_image") or img.get("src", "")) if img else ""
 
-            if name and href:
+            if href and (name or img):
                 seen.add(href)
                 videos.append({
                     "vod_id": href,
@@ -129,7 +136,7 @@ class Spider(SpiderBase):
         return {
             "list": videos,
             "page": int(pg),
-            "pagecount": int(pg) + 1 if len(videos) >= 10 else int(pg),
+            "pagecount": int(pg) + 1 if len(videos) >= 12 else int(pg),
             "limit": len(videos),
             "total": 9999
         }
@@ -141,92 +148,96 @@ class Spider(SpiderBase):
         html = self._fetch(url)
         soup = BeautifulSoup(html, "html.parser")
 
-        # 获取影片标题
-        title_node = soup.select_one("h1, h2, .title, .post-title, .entry-title")
-        title = self._clean_title(title_node.get_text(strip=True) if title_node else "在线播放")
+        title_node = soup.select_one("#m_title_text, #m_title, h1, .title")
+        title = self._clean_title(title_node.get_text(strip=True) if title_node else "正妹AV")
 
-        # 获取封面图
-        pic_node = soup.select_one(".poster img, .cover img, .entry-content img, article img")
-        pic = self._fix_url(pic_node.get("src") or pic_node.get("data-src", "")) if pic_node else ""
+        img_node = soup.select_one("#m_image img, .m_image img")
+        pic = self._fix_url(img_node.get("src", "")) if img_node else ""
 
-        # 选集探测：寻找所有可能的播放/选集链接
-        ep_links = []
-        for a in soup.select("a[href*='play'], a[href*='video'], .playlist a, .episodes a"):
-            ep_href = a.get("href", "")
-            ep_name = a.get_text(strip=True) or a.get("title", "")
-            if ep_href and ep_name:
-                ep_links.append(f"{ep_name}${self._fix_url(ep_href)}")
-
-        # 若无明确列表，则当前详情页即为单集播放页
-        if not ep_links:
-            ep_links.append(f"正片${url}")
+        # 番号与类型信息提取
+        remarks = ""
+        desig_node = soup.select_one("#m_designation")
+        if desig_node:
+            remarks = self._clean_title(desig_node.get_text(strip=True))
 
         return {
             "list": [{
                 "vod_id": vod_id,
                 "vod_name": title,
                 "vod_pic": pic,
-                "vod_play_from": "遮天专线",
-                "vod_play_url": "#".join(ep_links)
+                "vod_remarks": remarks,
+                "vod_play_from": "正妹專線",
+                "vod_play_url": f"完整高清${url}"
             }]
         }
 
-    # 4. 播放地址多层提取 (playerContent)
+    # 4. 播放地址解析 (四极解密：破除 17 秒试看)
     def playerContent(self, flag, id, vipFlags):
         url = self._fix_url(id)
         html = self._fetch(url)
 
-        # 13层提取：优先探测直接嵌入的 m3u8 / mp4 地址
-        m3u8_match = re.search(r'(https?://[^"\s\',]+\.m3u8[^"\s\',]*)', html)
-        if m3u8_match:
-            return {"parse": 0, "url": m3u8_match.group(1).replace(r"\/", "/"), "header": f"Referer={self.siteUrl}/"}
-
-        mp4_match = re.search(r'(https?://[^"\s\',]+\.mp4[^"\s\',]*)', html)
-        if mp4_match:
-            return {"parse": 0, "url": mp4_match.group(1).replace(r"\/", "/"), "header": f"Referer={self.siteUrl}/"}
-
-        # 探测 player_data / player_aaaa / 初始化 JS 变量
-        js_data_match = re.search(r'var\s+player_(?:data|aaaa)\s*=\s*([^\n;]+)', html)
-        if js_data_match:
+        # 核心解密：匹配 iframe 中的嵌入参数 u=Base64
+        # 形式：src="https://ggjav.com/main/embed?u=aHR0cHM6Ly92aWRlby0...=&site=goodav"
+        embed_match = re.search(r'embed\?u=([a-zA-Z0-9+/=]+)', html)
+        if embed_match:
             try:
-                raw_json = json.loads(js_data_match.group(1))
-                real_url = raw_json.get("url", "")
-                if real_url:
-                    return {"parse": 0, "url": real_url, "header": f"Referer={self.siteUrl}/"}
+                b64_str = embed_match.group(1)
+                real_video_url = base64.b64decode(b64_str).decode("utf-8")
+                if real_video_url.startswith("http"):
+                    # 成功提取完整直链，直接直连播放（免第三方页面 17 秒广告拦截）
+                    return {
+                        "parse": 0,
+                        "url": real_video_url,
+                        "header": {
+                            "User-Agent": self.headers["User-Agent"],
+                            "Referer": "https://ggjav.com/"
+                        }
+                    }
             except Exception:
                 pass
 
-        # 探测 iframe 嵌套播放源
-        iframe_match = re.search(r'<iframe[^>]+src=["\']([^"\']+)["\']', html)
+        # 备选提取：直接探测源码中可能存在的其他 mp4 / m3u8
+        video_match = re.search(r'(https?://[^"\s\',]+\.(?:m3u8|mp4)[^"\s\',]*)', html)
+        if video_match:
+            return {
+                "parse": 0,
+                "url": video_match.group(1).replace(r"\/", "/"),
+                "header": {"Referer": "https://goodav17.com/"}
+            }
+
+        # 兜底：嗅探 iframe
+        iframe_match = re.search(r'<iframe[^>]+id=[\'"]video_frame[\'"][^>]+src=[\'"]([^\'"]+)[\'"]', html)
         if iframe_match:
-            iframe_url = self._fix_url(iframe_match.group(1))
-            return {"parse": 1, "url": iframe_url, "header": f"Referer={self.siteUrl}/"}
+            return {
+                "parse": 1,
+                "url": self._fix_url(iframe_match.group(1)),
+                "header": {"Referer": "https://goodav17.com/"}
+            }
 
-        # 兜底：交由 TVBox 内置 webview 解析
-        return {"parse": 1, "url": url, "header": f"Referer={self.siteUrl}/"}
+        return {"parse": 1, "url": url, "header": {"Referer": "https://goodav17.com/"}}
 
-    # 5. 关键词搜索 (searchContent)
+    # 5. 搜索 (searchContent)
     def searchContent(self, key, quick, pg="1"):
-        search_url = f"{self.siteUrl}/search/{parse.quote(key)}/page/{pg}"
+        search_url = f"{self.siteUrl}/search/{parse.quote(key)}/{pg}/"
         html = self._fetch(search_url)
-        if not html or len(html) < 200:
-            search_url = f"{self.siteUrl}/?s={parse.quote(key)}"
-            html = self._fetch(search_url)
-
         soup = BeautifulSoup(html, "html.parser")
         videos = []
         seen = set()
 
-        for a_tag in soup.select("a[href*='video'], a[href*='vod'], .video-item a, article a"):
-            href = a_tag.get("href", "")
-            if not href or href in seen or href == self.siteUrl:
+        for item in soup.select(".movie"):
+            a_tag = item.find("a")
+            if not a_tag:
                 continue
 
-            img_tag = a_tag.find("img")
-            name = a_tag.get("title") or (img_tag.get("alt", "") if img_tag else "") or a_tag.get_text(strip=True)
-            pic = (img_tag.get("data-original") or img_tag.get("data-src") or img_tag.get("src", "")) if img_tag else ""
+            href = a_tag.get("href", "")
+            if not href or href in seen or "/html/" not in href:
+                continue
 
-            if name and href:
+            img = item.find("img")
+            name = a_tag.get_text(strip=True) or (img.get("alt", "") if img else "")
+            pic = (img.get("large_image") or img.get("small_image") or img.get("src", "")) if img else ""
+
+            if href and (name or img):
                 seen.add(href)
                 videos.append({
                     "vod_id": href,
@@ -245,5 +256,19 @@ class Spider(SpiderBase):
 if __name__ == "__main__":
     spider = Spider()
     spider.init()
-    print("=== 测试 homeContent ===")
+    print("--- 1. 測試 homeContent ---")
     print(json.dumps(spider.homeContent(), ensure_ascii=False, indent=2))
+    
+    print("\n--- 2. 測試 categoryContent (無碼專區) ---")
+    cat = spider.categoryContent("type_無碼", "1", False, {})
+    print(json.dumps(cat, ensure_ascii=False, indent=2))
+    
+    if cat["list"]:
+        test_id = cat["list"][0]["vod_id"]
+        print(f"\n--- 3. 測試 detailContent ({test_id}) ---")
+        detail = spider.detailContent([test_id])
+        print(json.dumps(detail, ensure_ascii=False, indent=2))
+        
+        print(f"\n--- 4. 測試 playerContent ({test_id}) [解密完整MP4直鏈] ---")
+        play = spider.playerContent("", test_id, "")
+        print(json.dumps(play, ensure_ascii=False, indent=2))
