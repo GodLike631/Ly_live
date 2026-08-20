@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 ══════════════════════════════════════════════════════════════════
-《遮天法 2.0》定制爬虫源 — MissAV (全功能适配版)
-- 四极秘境: 内置纯 Python JS-Packer 解密器，秒破 eval 混淆提取 m3u8
-- 道宫秘境: 本地 HTTP 代理服务器转发切片，穿透 Cloudflare 403 与防盗链
+《遮天法 2.0》定制爬虫源 — MissAV (全分类路由修复版)
+- 修复分类 DMCA 路径前缀，解决全部分类“找不到数据”的问题
+- 优化列表选择器与分页匹配
+- 保持四极 JS-Packer 解密与道宫本地代理防盗链转发
 ══════════════════════════════════════════════════════════════════
 """
 
@@ -75,13 +76,11 @@ class Spider(SpiderBase):
         return p
 
     def _extract_m3u8(self, html):
-        """解析页面内的 Packer JS 提取真实播放直链"""
         packer_match = re.search(r"eval\(function\(p,a,c,k,e,d\)\{.*?\}\('(.*?)',(\d+),(\d+),'(.*?)'\.split\('\|'\)", html, re.S)
         if packer_match:
             try:
                 p, a, c, k = packer_match.group(1), int(packer_match.group(2)), int(packer_match.group(3)), packer_match.group(4).split('|')
                 unpacked = self._unpack_js(p, a, c, k)
-                # 寻找 1080p / 720p / playlist.m3u8
                 m_1080 = re.search(r"['\"](https?://[^'\"]+/1080p/video\.m3u8)['\"]", unpacked)
                 m_720 = re.search(r"['\"](https?://[^'\"]+/720p/video\.m3u8)['\"]", unpacked)
                 m_list = re.search(r"['\"](https?://[^'\"]+/playlist\.m3u8)['\"]", unpacked)
@@ -95,7 +94,6 @@ class Spider(SpiderBase):
             except Exception:
                 pass
 
-        # 兜底普通探测
         m = re.search(r'(https?://surrit\.com/[a-zA-Z0-9\-]+/(?:playlist|1080p/video|720p/video)\.m3u8)', html)
         if m:
             return m.group(1)
@@ -124,7 +122,6 @@ class Spider(SpiderBase):
                         resp = requests.get(raw_url, headers=h, timeout=12)
                         base_url = raw_url.rsplit("/", 1)[0]
 
-                        # 重写分片为本地中转代理，绕开 403 白名单限制
                         lines = resp.text.split("\n")
                         new_lines = []
                         for line in lines:
@@ -211,56 +208,66 @@ class Spider(SpiderBase):
         t = re.sub(r"<[^>]+>", "", t)
         return t.strip()
 
-    # 1. 首页分类 (homeContent)
+    # 1. 首页分类 (修复为包含准确 dm 前缀的真实路由)
     def homeContent(self, filter=False):
         classes = [
-            {"type_name": "最近更新", "type_id": "cn/new"},
-            {"type_name": "新作上市", "type_id": "cn/release"},
-            {"type_name": "中文字幕", "type_id": "cn/chinese-subtitle"},
-            {"type_name": "无码流出", "type_id": "cn/uncensored-leak"},
-            {"type_name": "FC2", "type_id": "cn/fc2"},
-            {"type_name": "HEYZO", "type_id": "cn/heyzo"},
-            {"type_name": "一本道", "type_id": "cn/1pondo"},
-            {"type_name": "天然素人", "type_id": "cn/10musume"},
-            {"type_name": "东京热", "type_id": "cn/tokyohot"},
-            {"type_name": "麻豆传媒", "type_id": "cn/madou"},
+            {"type_name": "最近更新", "type_id": "dm539/cn/new"},
+            {"type_name": "新作上市", "type_id": "dm635/cn/release"},
+            {"type_name": "中文字幕", "type_id": "dm278/cn/chinese-subtitle"},
+            {"type_name": "无码流出", "type_id": "dm817/cn/uncensored-leak"},
+            {"type_name": "FC2", "type_id": "dm597/cn/fc2"},
+            {"type_name": "HEYZO", "type_id": "dm2208642/cn/heyzo"},
+            {"type_name": "一本道", "type_id": "dm5199603/cn/1pondo"},
+            {"type_name": "天然素人", "type_id": "dm7208981/cn/10musume"},
+            {"type_name": "东京热", "type_id": "dm42/cn/tokyohot"},
+            {"type_name": "麻豆传媒", "type_id": "dm63/cn/madou"},
             {"type_name": "VR专区", "type_id": "cn/genres/VR"},
-            {"type_name": "本月热门", "type_id": "cn/monthly-hot"}
+            {"type_name": "今日热门", "type_id": "dm301/cn/today-hot"},
+            {"type_name": "本月热门", "type_id": "dm273/cn/monthly-hot"}
         ]
         return {"class": classes}
 
     # 2. 分类列表 (categoryContent)
     def categoryContent(self, tid, pg="1", filter=False, extend=None):
         pg = str(pg)
+        tid = tid.strip("/")
+        # 支持分页 query 参数
         url = f"{self.siteUrl}/{tid}?page={pg}" if pg != "1" else f"{self.siteUrl}/{tid}"
         html = self._fetch(url)
         soup = BeautifulSoup(html, "html.parser")
         videos = []
         seen = set()
 
-        for item in soup.select("div.thumbnail, div.group"):
+        # 强化卡片匹配：同时兼容 SSR 静态节点与网格容器
+        for item in soup.select("div.thumbnail, div.grid > div"):
             a_tag = item.find("a", href=True)
             if not a_tag:
                 continue
 
             href = a_tag.get("href", "")
-            if not href or href in seen or "javascript:" in href:
+            if not href or href in seen or "javascript:" in href or href == "#":
                 continue
 
             img = item.find("img")
             name = a_tag.get("alt", "") or (img.get("alt", "") if img else "")
+            
+            # 从相邻标题文本补充标题
             if not name:
-                title_node = item.find_next("a", class_=re.compile(r"text-secondary|text-nord4"))
+                title_node = item.select_one("a.text-secondary, a.text-nord4, div.my-2 a, div.text-sm a")
                 if title_node:
                     name = title_node.get_text(strip=True)
+                    if not href or href.startswith("javascript"):
+                        href = title_node.get("href", "")
 
             pic = (img.get("data-src") or img.get("src", "")) if img else ""
+            if "data:image" in pic and img and img.get("data-src"):
+                pic = img.get("data-src")
 
             if href and (name or pic):
                 seen.add(href)
                 videos.append({
                     "vod_id": href,
-                    "vod_name": self._clean_title(name),
+                    "vod_name": self._clean_title(name or "MissAV 视频"),
                     "vod_pic": self._fix_url(pic),
                     "vod_remarks": ""
                 })
@@ -289,7 +296,6 @@ class Spider(SpiderBase):
         img_node = soup.select_one("meta[property='og:image'], video.player")
         pic = img_node.get("content") or img_node.get("data-poster", "") if img_node else ""
 
-        # 番号与女优信息
         remarks = ""
         act_node = soup.select_one("div:has(> span:contains('女优')) a, a[href*='/actresses/']")
         if act_node:
@@ -312,10 +318,8 @@ class Spider(SpiderBase):
         url = self._fix_url(id)
         html = self._fetch(url)
 
-        # 1. 纯算法解密 Packer JS 提取真实 m3u8
+        # 提取真实播放直链并走本地代理中转
         raw_m3u8 = self._extract_m3u8(html)
-
-        # 2. 封装为本地代理播放地址（彻底穿透 Cloudflare 403）
         if raw_m3u8:
             enc_target = base64.b64encode(raw_m3u8.encode()).decode()
             proxy_play_url = f"http://127.0.0.1:{self.proxyPort}/proxy_m3u8?url={enc_target}"
@@ -325,7 +329,6 @@ class Spider(SpiderBase):
                 "header": ""
             }
 
-        # 兜底嗅探
         return {
             "parse": 1,
             "url": url,
@@ -340,7 +343,7 @@ class Spider(SpiderBase):
         videos = []
         seen = set()
 
-        for item in soup.select("div.thumbnail, div.group"):
+        for item in soup.select("div.thumbnail, div.grid > div"):
             a_tag = item.find("a", href=True)
             if not a_tag:
                 continue
@@ -372,9 +375,8 @@ class Spider(SpiderBase):
 if __name__ == "__main__":
     spider = Spider()
     spider.init()
-    test_id = "/dm27/cn/sone-166-uncensored-leak"
-    print(f"=== 测试详情与播放 ({test_id}) ===")
-    detail = spider.detailContent([test_id])
-    print("详情返回:", json.dumps(detail, ensure_ascii=False, indent=2))
-    play = spider.playerContent("", test_id, "")
-    print("播放返回:", json.dumps(play, ensure_ascii=False, indent=2))
+    print("=== 测试新作上市分类 ===")
+    res = spider.categoryContent("dm635/cn/release", "1", False, {})
+    print(f"获取影片数量: {len(res['list'])}")
+    if res["list"]:
+        print("第一条数据:", json.dumps(res["list"][0], ensure_ascii=False, indent=2))
