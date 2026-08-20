@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-《遮天法 2.0》定制爬虫源 - goodav17 (正妹AV 终极修复版)
-- 修复伪装 MP4 路径导致 TVBox 超时的问题（转为真实 HLS m3u8 / 兼容直链）
-- 注入 ggjav 防盗链 Referer/Origin 头
+《遮天法 2.0》定制爬虫源 - goodav17 (道宫秘境·本地代理穿透版)
+- 激活本地 HTTP 代理服务器 (DaoGong)
+- 拦截并重写 HLS m3u8 切片，强制附加 Referer 穿透防盗链超时
 """
 
 import sys
 import os
 import re
 import json
+import time
 import base64
+import threading
 import html as html_lib
 from urllib import parse
+from urllib.parse import parse_qs, urlparse
+import http.server
+import socketserver
 import requests
 from bs4 import BeautifulSoup
 
@@ -28,14 +33,18 @@ class Spider(SpiderBase):
         super().__init__()
         self.siteUrl = "https://goodav17.com"
         self.session = requests.Session()
+        self.proxyPort = 9979
+        self._proxy_server = None
+        self._proxy_thread = None
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "Accept-Language": "zh-CN,zh-TW;q=0.9,zh;q=0.8,en;q=0.7",
             "Referer": "https://goodav17.com/"
         }
 
     def init(self, extend=""):
+        self.start_proxy()
         return True
 
     def isVideoFormat(self, url):
@@ -43,6 +52,92 @@ class Spider(SpiderBase):
         return any(f in url.lower() for f in formats)
 
     def manualVideoCheck(self):
+        return False
+
+    # ──── 道宫秘境 · 本地代理服务器 ────
+    def start_proxy(self):
+        if self._proxy_server:
+            return True
+
+        outer = self
+
+        class ProxyHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+
+                if parsed.path == "/proxy_m3u8":
+                    try:
+                        raw_url = base64.b64decode(params.get("url", [""])[0]).decode()
+                        h = {
+                            "User-Agent": outer.headers["User-Agent"],
+                            "Referer": "https://ggjav.com/",
+                            "Origin": "https://ggjav.com"
+                        }
+                        resp = requests.get(raw_url, headers=h, timeout=12)
+                        
+                        # 文本重写：将 m3u8 内的所有分片路径转化为本地代理
+                        base_url = raw_url.rsplit("/", 1)[0]
+                        lines = resp.text.split("\n")
+                        new_lines = []
+                        for line in lines:
+                            line_str = line.strip()
+                            if line_str and not line_str.startswith("#"):
+                                if not line_str.startswith("http"):
+                                    ts_url = f"{base_url}/{line_str}"
+                                else:
+                                    ts_url = line_str
+                                ts_enc = base64.b64encode(ts_url.encode()).decode()
+                                new_lines.append(f"http://127.0.0.1:{outer.proxyPort}/proxy_ts?url={ts_enc}")
+                            else:
+                                new_lines.append(line)
+
+                        body = "\n".join(new_lines).encode("utf-8")
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.end_headers()
+                        self.wfile.write(body)
+                    except Exception as e:
+                        self.send_response(500)
+                        self.end_headers()
+                        self.wfile.write(str(e).encode())
+
+                elif parsed.path == "/proxy_ts":
+                    try:
+                        real_ts = base64.b64decode(params.get("url", [""])[0]).decode()
+                        h = {
+                            "User-Agent": outer.headers["User-Agent"],
+                            "Referer": "https://ggjav.com/",
+                            "Origin": "https://ggjav.com"
+                        }
+                        r = requests.get(real_ts, headers=h, stream=True, timeout=15)
+                        self.send_response(r.status_code)
+                        self.send_header("Content-Type", "video/mp2t")
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.end_headers()
+                        for chunk in r.iter_content(chunk_size=65536):
+                            self.wfile.write(chunk)
+                    except Exception as e:
+                        self.send_response(502)
+                        self.end_headers()
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
+            def log_message(self, format, *args):
+                pass
+
+        for port in [9979, 9980, 9981, 9982, 9983, 9984]:
+            try:
+                self.proxyPort = port
+                self._proxy_server = socketserver.ThreadingTCPServer(("127.0.0.1", port), ProxyHandler)
+                self._proxy_thread = threading.Thread(target=self._proxy_server.serve_forever, daemon=True)
+                self._proxy_thread.start()
+                return True
+            except OSError:
+                continue
         return False
 
     def _fetch(self, url, headers=None, timeout=12):
@@ -165,73 +260,49 @@ class Spider(SpiderBase):
                 "vod_name": title,
                 "vod_pic": pic,
                 "vod_remarks": remarks,
-                "vod_play_from": "正妹專線",
+                "vod_play_from": "道宮專線",
                 "vod_play_url": f"完整高清${url}"
             }]
         }
 
-    # 4. 播放地址解析 (关键修正：适配伪装 MP4 目录的 HLS 结构)
+    # 4. 播放地址解析 (道宫本地代理中转)
     def playerContent(self, flag, id, vipFlags):
+        self.start_proxy()
         url = self._fix_url(id)
         html = self._fetch(url)
 
-        # 1. 查找 iframe 嵌入地址
-        iframe_src = ""
-        embed_m = re.search(r'src=[\'"](https?://ggjav\.com/main/embed\?[^\'"]+)[\'"]', html) or \
-                  re.search(r'<iframe[^>]+src=[\'"]([^\'"]+embed\?[^\'"]+)[\'"]', html)
-        if embed_m:
-            iframe_src = embed_m.group(1)
-
+        # 提取 Base64 原始地址
         raw_stream_url = ""
-
-        # 2. 从 embed?u= 中提取 Base64 原始地址
-        b64_match = re.search(r'embed\?u=([a-zA-Z0-9+/=]+)', iframe_src or html)
+        b64_match = re.search(r'embed\?u=([a-zA-Z0-9+/=]+)', html)
         if b64_match:
             try:
-                b64_str = b64_match.group(1)
-                decoded = base64.b64decode(b64_str).decode("utf-8")
+                decoded = base64.b64decode(b64_match.group(1)).decode("utf-8")
                 if decoded.startswith("http"):
                     raw_stream_url = decoded
             except Exception:
                 pass
 
-        # 3. 若未拿到，则请求 iframe 页面提取真实 video/source 标签或 JS 变量
-        if not raw_stream_url and iframe_src:
-            iframe_html = self._fetch(iframe_src, headers={"Referer": self.siteUrl})
-            v_match = re.search(r'<source[^>]+src=[\'"]([^\'"]+)[\'"]', iframe_html) or \
-                      re.search(r'file\s*:\s*[\'"]([^\'"]+)[\'"]', iframe_html) or \
-                      re.search(r'src=[\'"](https?://[^"\']+\.(?:m3u8|mp4)[^"\']*)[\'"]', iframe_html)
-            if v_match:
-                raw_stream_url = v_match.group(1)
-
-        # 4. 转换伪装 MP4 路径为真实可播流
-        final_url = raw_stream_url
         if raw_stream_url:
-            # 如果是 .mp4 路径，但实际是 HLS 伪装流，追加 /index.m3u8 自动兼容
-            # 形式例如: https://video-1.ggjav.com/video_1/xxxx.mp4 -> /index.m3u8
+            # 构建目标 m3u8 地址
             if raw_stream_url.endswith(".mp4") and "ggjav.com" in raw_stream_url:
-                # 检查直接访问或附加 index.m3u8
-                # 大多数 ggjav 节点直接支持 /index.m3u8 索引请求
-                final_url = f"{raw_stream_url}/index.m3u8"
-            
-            # 标准 TVBox 播放 Header 格式
-            play_headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                "Referer": "https://ggjav.com/",
-                "Origin": "https://ggjav.com"
-            }
+                target_m3u8 = f"{raw_stream_url}/index.m3u8"
+            else:
+                target_m3u8 = raw_stream_url
+
+            # 封装为本地代理播放地址
+            enc_target = base64.b64encode(target_m3u8.encode()).decode()
+            proxy_play_url = f"http://127.0.0.1:{self.proxyPort}/proxy_m3u8?url={enc_target}"
 
             return {
                 "parse": 0,
-                "url": final_url,
-                "header": play_headers
+                "url": proxy_play_url,
+                "header": ""
             }
 
         # 兜底：嗅探
-        fallback_url = iframe_src if iframe_src else url
         return {
             "parse": 1,
-            "url": fallback_url,
+            "url": url,
             "header": f"Referer={self.siteUrl}/"
         }
 
@@ -267,7 +338,7 @@ class Spider(SpiderBase):
 
         return {"list": videos}
 
-    # 6. 本地代理 (localProxy)
+    # 6. 本地代理接口兼容
     def localProxy(self, param):
         return [404, "text/plain", "Not Supported"]
 
@@ -275,7 +346,7 @@ class Spider(SpiderBase):
 if __name__ == "__main__":
     spider = Spider()
     spider.init()
-    test_id = "/html/4881990/"
-    print(f"=== 播放解析测试 ({test_id}) ===")
+    test_id = "/html/20975/"
+    print(f"=== 道宫代理测试 ({test_id}) ===")
     play = spider.playerContent("", test_id, "")
     print(json.dumps(play, ensure_ascii=False, indent=2))
