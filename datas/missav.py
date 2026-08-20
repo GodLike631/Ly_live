@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 ══════════════════════════════════════════════════════════════════
-《遮天法 2.0》定制爬虫源 — MissAV (全分类精准适配版)
-- 精准适配 div.thumbnail 下的真实封面(data-src)与标题DOM节点
-- 适配 DMCA 路由路径与标准分页机制
-- 包含四极 JS-Packer 纯算法解密与道宫本地代理防盗链
+《遮天法 2.0》定制爬虫源 — MissAV (分类路径重构终极版)
+- 适配标准语言路由与动态重定向，全分类覆盖
+- 双层 DOM 嗅探：div.thumbnail / a.text-secondary
+- 四极 JS-Packer 解密 + 道宫本地代理转发
 ══════════════════════════════════════════════════════════════════
 """
 
@@ -43,7 +43,8 @@ class Spider(SpiderBase):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "Referer": "https://missav.ws/"
+            "Referer": "https://missav.ws/",
+            "Connection": "keep-alive"
         }
 
     def init(self, extend=""):
@@ -57,7 +58,7 @@ class Spider(SpiderBase):
     def manualVideoCheck(self):
         return False
 
-    # ──── 四极秘境 · JS Packer 解密 ────
+    # ──── 四极秘境 · JS Packer 算法解密 ────
     def _unpack_js(self, p, a, c, k, e=None, d=None):
         def _base_n(num, b):
             digits = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -99,7 +100,7 @@ class Spider(SpiderBase):
             return m.group(1)
         return ""
 
-    # ──── 道宫秘境 · 本地代理大阵 ────
+    # ──── 道宫秘境 · 本地代理 ────
     def start_proxy(self):
         if self._proxy_server:
             return True
@@ -208,73 +209,73 @@ class Spider(SpiderBase):
         t = re.sub(r"<[^>]+>", "", t)
         return t.strip()
 
-    # 1. 首页分类 (配置精确的分类路径)
+    # 1. 首页分类
     def homeContent(self, filter=False):
         classes = [
-            {"type_name": "最近更新", "type_id": "dm539/cn/new"},
-            {"type_name": "新作上市", "type_id": "dm635/cn/release"},
-            {"type_name": "中文字幕", "type_id": "dm278/cn/chinese-subtitle"},
-            {"type_name": "无码流出", "type_id": "dm817/cn/uncensored-leak"},
-            {"type_name": "FC2", "type_id": "dm597/cn/fc2"},
-            {"type_name": "HEYZO", "type_id": "dm2208642/cn/heyzo"},
-            {"type_name": "一本道", "type_id": "dm5199603/cn/1pondo"},
-            {"type_name": "天然素人", "type_id": "dm7208981/cn/10musume"},
-            {"type_name": "东京热", "type_id": "dm42/cn/tokyohot"},
-            {"type_name": "麻豆传媒", "type_id": "dm63/cn/madou"},
+            {"type_name": "最近更新", "type_id": "cn/new"},
+            {"type_name": "新作上市", "type_id": "cn/release"},
+            {"type_name": "中文字幕", "type_id": "cn/chinese-subtitle"},
+            {"type_name": "无码流出", "type_id": "cn/uncensored-leak"},
+            {"type_name": "FC2", "type_id": "cn/fc2"},
+            {"type_name": "HEYZO", "type_id": "cn/heyzo"},
+            {"type_name": "一本道", "type_id": "cn/1pondo"},
+            {"type_name": "天然素人", "type_id": "cn/10musume"},
+            {"type_name": "东京热", "type_id": "cn/tokyohot"},
+            {"type_name": "麻豆传媒", "type_id": "cn/madou"},
             {"type_name": "VR专区", "type_id": "cn/genres/VR"},
-            {"type_name": "今日热门", "type_id": "dm301/cn/today-hot"},
-            {"type_name": "本月热门", "type_id": "dm273/cn/monthly-hot"}
+            {"type_name": "今日热门", "type_id": "cn/today-hot"},
+            {"type_name": "本月热门", "type_id": "cn/monthly-hot"}
         ]
         return {"class": classes}
 
-    # 2. 分类列表 (categoryContent - 核心适配解析器)
+    # 2. 分类列表 (categoryContent)
     def categoryContent(self, tid, pg="1", filter=False, extend=None):
         pg = str(pg)
         tid = tid.strip("/")
-        url = f"{self.siteUrl}/{tid}?page={pg}" if pg != "1" else f"{self.siteUrl}/{tid}"
+        
+        # 兼容自动跳转与直接路由
+        target_path = tid if tid.startswith("http") else f"{self.siteUrl}/{tid}"
+        url = f"{target_path}?page={pg}" if pg != "1" else target_path
+
         html = self._fetch(url)
         soup = BeautifulSoup(html, "html.parser")
         videos = []
         seen = set()
 
-        # 精确适配 MissAV 分类页的卡片 DOM：div.thumbnail 或 div.aspect-w-16 容器
-        items = soup.select("div.thumbnail") or soup.select("div.grid > div")
+        # 针对 MissAV 真实 DOM 容器做广度匹配
+        for item in soup.select("div.thumbnail, div.relative.aspect-w-16, div.my-2"):
+            parent = item.find_parent("div", class_=re.compile(r"thumbnail|group")) or item
 
-        for item in items:
-            # 1. 获取包含影片链接与标题的节点
-            title_node = item.select_one("div.my-2 a, div.text-sm a, a.text-secondary")
-            main_a = item.find("a", href=True)
-            
+            title_node = parent.select_one("div.my-2 a, div.text-sm a, a.text-secondary, a[alt]")
+            img = parent.find("img")
+
             href = ""
             if title_node and title_node.get("href"):
                 href = title_node.get("href")
-            elif main_a:
-                href = main_a.get("href", "")
+            elif parent.find("a", href=True):
+                href = parent.find("a", href=True).get("href")
 
             if not href or href in seen or "javascript:" in href or href == "#":
                 continue
 
-            # 2. 获取真实标题
             name = ""
             if title_node and title_node.get_text(strip=True):
                 name = title_node.get_text(strip=True)
-            
-            img = item.find("img")
-            if not name and img:
-                name = img.get("alt", "")
+            elif title_node and title_node.get("alt"):
+                name = title_node.get("alt")
+            elif img and img.get("alt"):
+                name = img.get("alt")
 
-            # 3. 获取真实封面（优先取 data-src 避免占位图）
             pic = ""
             if img:
                 pic = img.get("data-src") or img.get("src", "")
                 if pic.startswith("data:image"):
                     pic = img.get("data-src", "")
 
-            # 4. 获取片长（remarks）
             remarks = ""
-            time_tag = item.select_one("span.bg-gray-800")
-            if time_tag:
-                remarks = time_tag.get_text(strip=True)
+            time_node = parent.select_one("span.bg-gray-800, span.text-nord5")
+            if time_node:
+                remarks = time_node.get_text(strip=True)
 
             if href and (name or pic):
                 seen.add(href)
@@ -358,7 +359,7 @@ class Spider(SpiderBase):
         for item in soup.select("div.thumbnail, div.grid > div"):
             title_node = item.select_one("div.my-2 a, div.text-sm a, a.text-secondary")
             main_a = item.find("a", href=True)
-            
+
             href = title_node.get("href") if title_node and title_node.get("href") else (main_a.get("href", "") if main_a else "")
 
             if not href or href in seen or "javascript:" in href or href == "#":
@@ -392,8 +393,9 @@ class Spider(SpiderBase):
 if __name__ == "__main__":
     spider = Spider()
     spider.init()
-    print("=== 测试新作上市分类列表 ===")
-    res = spider.categoryContent("dm635/cn/release", "1", False, {})
-    print(f"成功抓取数量: {len(res['list'])}")
-    if res["list"]:
-        print("前 2 条数据:", json.dumps(res["list"][:2], ensure_ascii=False, indent=2))
+    print("=== 测试新作上市 ===")
+    res = spider.categoryContent("cn/release", "1", False, {})
+    print(f"新作上市抓取数量: {len(res['list'])}")
+    print("=== 测试无码流出 ===")
+    res2 = spider.categoryContent("cn/uncensored-leak", "1", False, {})
+    print(f"无码流出抓取数量: {len(res2['list'])}")
