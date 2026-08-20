@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-《遮天法 2.0》定制爬虫源 - goodav17 (正妹AV)
-- 适配真實分類: 無碼/人妻/巨乳/中出/OL/VR/本土等
-- 破除 17 秒試看: 自動提取 iframe 中 Base64 加密的完整 MP4 直鏈
+《遮天法 2.0》定制爬虫源 - goodav17 (正妹AV 完美修复版)
+- 修复防盗链导致播放连接超时的问题
+- 优化 TVBox Header 注入与真实播放源重定向追踪
 """
 
 import sys
@@ -154,7 +154,6 @@ class Spider(SpiderBase):
         img_node = soup.select_one("#m_image img, .m_image img")
         pic = self._fix_url(img_node.get("src", "")) if img_node else ""
 
-        # 番号与类型信息提取
         remarks = ""
         desig_node = soup.select_one("#m_designation")
         if desig_node:
@@ -171,50 +170,64 @@ class Spider(SpiderBase):
             }]
         }
 
-    # 4. 播放地址解析 (四极解密：破除 17 秒试看)
+    # 4. 播放地址解析 (强化 Referer 注入与重定向追踪)
     def playerContent(self, flag, id, vipFlags):
         url = self._fix_url(id)
         html = self._fetch(url)
 
-        # 核心解密：匹配 iframe 中的嵌入参数 u=Base64
-        # 形式：src="https://ggjav.com/main/embed?u=aHR0cHM6Ly92aWRlby0...=&site=goodav"
-        embed_match = re.search(r'embed\?u=([a-zA-Z0-9+/=]+)', html)
-        if embed_match:
-            try:
-                b64_str = embed_match.group(1)
-                real_video_url = base64.b64decode(b64_str).decode("utf-8")
-                if real_video_url.startswith("http"):
-                    # 成功提取完整直链，直接直连播放（免第三方页面 17 秒广告拦截）
-                    return {
-                        "parse": 0,
-                        "url": real_video_url,
-                        "header": {
-                            "User-Agent": self.headers["User-Agent"],
-                            "Referer": "https://ggjav.com/"
-                        }
-                    }
-            except Exception:
-                pass
-
-        # 备选提取：直接探测源码中可能存在的其他 mp4 / m3u8
-        video_match = re.search(r'(https?://[^"\s\',]+\.(?:m3u8|mp4)[^"\s\',]*)', html)
-        if video_match:
-            return {
-                "parse": 0,
-                "url": video_match.group(1).replace(r"\/", "/"),
-                "header": {"Referer": "https://goodav17.com/"}
-            }
-
-        # 兜底：嗅探 iframe
+        # 1. 查找 iframe 真实嵌入地址
+        iframe_src = ""
         iframe_match = re.search(r'<iframe[^>]+id=[\'"]video_frame[\'"][^>]+src=[\'"]([^\'"]+)[\'"]', html)
         if iframe_match:
+            iframe_src = iframe_match.group(1)
+        else:
+            embed_m = re.search(r'src=[\'"](https?://ggjav\.com/main/embed\?[^\'"]+)[\'"]', html)
+            if embed_m:
+                iframe_src = embed_m.group(1)
+
+        real_video_url = ""
+
+        # 2. 从 iframe 参数中直接提取 Base64
+        if "embed?u=" in iframe_src or "embed?u=" in html:
+            b64_match = re.search(r'embed\?u=([a-zA-Z0-9+/=]+)', iframe_src or html)
+            if b64_match:
+                try:
+                    b64_str = b64_match.group(1)
+                    decoded = base64.b64decode(b64_str).decode("utf-8")
+                    if decoded.startswith("http"):
+                        real_video_url = decoded
+                except Exception:
+                    pass
+
+        # 3. 若直接 Base64 不通，请求 iframe 内部页面进一步探测 video 标签
+        if not real_video_url and iframe_src:
+            iframe_html = self._fetch(iframe_src, headers={"Referer": self.siteUrl})
+            v_match = re.search(r'<source[^>]+src=[\'"]([^\'"]+\.mp4[^\'"]*)[\'"]', iframe_html) or \
+                      re.search(r'src=[\'"](https?://[^"\']+\.mp4[^"\']*)[\'"]', iframe_html)
+            if v_match:
+                real_video_url = v_match.group(1)
+
+        # 4. 成功获取直链后，注入防盗链所需的完整 Headers
+        if real_video_url:
+            # 兼容 TVBox/影视仓 的 Header 协议（Referer / User-Agent）
+            play_headers = (
+                f"User-Agent={self.headers['User-Agent']}"
+                f"&Referer=https://ggjav.com/"
+                f"&Origin=https://ggjav.com"
+            )
             return {
-                "parse": 1,
-                "url": self._fix_url(iframe_match.group(1)),
-                "header": {"Referer": "https://goodav17.com/"}
+                "parse": 0,
+                "url": real_video_url,
+                "header": play_headers
             }
 
-        return {"parse": 1, "url": url, "header": {"Referer": "https://goodav17.com/"}}
+        # 兜底：嗅探
+        fallback_url = iframe_src if iframe_src else url
+        return {
+            "parse": 1,
+            "url": fallback_url,
+            "header": f"Referer={self.siteUrl}/"
+        }
 
     # 5. 搜索 (searchContent)
     def searchContent(self, key, quick, pg="1"):
@@ -256,19 +269,10 @@ class Spider(SpiderBase):
 if __name__ == "__main__":
     spider = Spider()
     spider.init()
-    print("--- 1. 測試 homeContent ---")
-    print(json.dumps(spider.homeContent(), ensure_ascii=False, indent=2))
-    
-    print("\n--- 2. 測試 categoryContent (無碼專區) ---")
-    cat = spider.categoryContent("type_無碼", "1", False, {})
-    print(json.dumps(cat, ensure_ascii=False, indent=2))
-    
-    if cat["list"]:
-        test_id = cat["list"][0]["vod_id"]
-        print(f"\n--- 3. 測試 detailContent ({test_id}) ---")
-        detail = spider.detailContent([test_id])
-        print(json.dumps(detail, ensure_ascii=False, indent=2))
-        
-        print(f"\n--- 4. 測試 playerContent ({test_id}) [解密完整MP4直鏈] ---")
-        play = spider.playerContent("", test_id, "")
-        print(json.dumps(play, ensure_ascii=False, indent=2))
+    # 针对截图中的 4881990 进行单项播放测试
+    test_id = "/html/4881990/"
+    print(f"=== 测试详情与播放 ({test_id}) ===")
+    detail = spider.detailContent([test_id])
+    print("详情返回:", json.dumps(detail, ensure_ascii=False, indent=2))
+    play = spider.playerContent("", test_id, "")
+    print("播放返回:", json.dumps(play, ensure_ascii=False, indent=2))
