@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 ══════════════════════════════════════════════════════════════════
-《遮天法 2.0》定制爬虫源 — MissAV (全分类路由修复版)
-- 修复分类 DMCA 路径前缀，解决全部分类“找不到数据”的问题
-- 优化列表选择器与分页匹配
-- 保持四极 JS-Packer 解密与道宫本地代理防盗链转发
+《遮天法 2.0》定制爬虫源 — MissAV (全分类精准适配版)
+- 精准适配 div.thumbnail 下的真实封面(data-src)与标题DOM节点
+- 适配 DMCA 路由路径与标准分页机制
+- 包含四极 JS-Packer 纯算法解密与道宫本地代理防盗链
 ══════════════════════════════════════════════════════════════════
 """
 
@@ -57,7 +57,7 @@ class Spider(SpiderBase):
     def manualVideoCheck(self):
         return False
 
-    # ──── 四极秘境 · JS Packer 纯算法解密 ────
+    # ──── 四极秘境 · JS Packer 解密 ────
     def _unpack_js(self, p, a, c, k, e=None, d=None):
         def _base_n(num, b):
             digits = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -208,7 +208,7 @@ class Spider(SpiderBase):
         t = re.sub(r"<[^>]+>", "", t)
         return t.strip()
 
-    # 1. 首页分类 (修复为包含准确 dm 前缀的真实路由)
+    # 1. 首页分类 (配置精确的分类路径)
     def homeContent(self, filter=False):
         classes = [
             {"type_name": "最近更新", "type_id": "dm539/cn/new"},
@@ -227,49 +227,62 @@ class Spider(SpiderBase):
         ]
         return {"class": classes}
 
-    # 2. 分类列表 (categoryContent)
+    # 2. 分类列表 (categoryContent - 核心适配解析器)
     def categoryContent(self, tid, pg="1", filter=False, extend=None):
         pg = str(pg)
         tid = tid.strip("/")
-        # 支持分页 query 参数
         url = f"{self.siteUrl}/{tid}?page={pg}" if pg != "1" else f"{self.siteUrl}/{tid}"
         html = self._fetch(url)
         soup = BeautifulSoup(html, "html.parser")
         videos = []
         seen = set()
 
-        # 强化卡片匹配：同时兼容 SSR 静态节点与网格容器
-        for item in soup.select("div.thumbnail, div.grid > div"):
-            a_tag = item.find("a", href=True)
-            if not a_tag:
-                continue
+        # 精确适配 MissAV 分类页的卡片 DOM：div.thumbnail 或 div.aspect-w-16 容器
+        items = soup.select("div.thumbnail") or soup.select("div.grid > div")
 
-            href = a_tag.get("href", "")
+        for item in items:
+            # 1. 获取包含影片链接与标题的节点
+            title_node = item.select_one("div.my-2 a, div.text-sm a, a.text-secondary")
+            main_a = item.find("a", href=True)
+            
+            href = ""
+            if title_node and title_node.get("href"):
+                href = title_node.get("href")
+            elif main_a:
+                href = main_a.get("href", "")
+
             if not href or href in seen or "javascript:" in href or href == "#":
                 continue
 
-            img = item.find("img")
-            name = a_tag.get("alt", "") or (img.get("alt", "") if img else "")
+            # 2. 获取真实标题
+            name = ""
+            if title_node and title_node.get_text(strip=True):
+                name = title_node.get_text(strip=True)
             
-            # 从相邻标题文本补充标题
-            if not name:
-                title_node = item.select_one("a.text-secondary, a.text-nord4, div.my-2 a, div.text-sm a")
-                if title_node:
-                    name = title_node.get_text(strip=True)
-                    if not href or href.startswith("javascript"):
-                        href = title_node.get("href", "")
+            img = item.find("img")
+            if not name and img:
+                name = img.get("alt", "")
 
-            pic = (img.get("data-src") or img.get("src", "")) if img else ""
-            if "data:image" in pic and img and img.get("data-src"):
-                pic = img.get("data-src")
+            # 3. 获取真实封面（优先取 data-src 避免占位图）
+            pic = ""
+            if img:
+                pic = img.get("data-src") or img.get("src", "")
+                if pic.startswith("data:image"):
+                    pic = img.get("data-src", "")
+
+            # 4. 获取片长（remarks）
+            remarks = ""
+            time_tag = item.select_one("span.bg-gray-800")
+            if time_tag:
+                remarks = time_tag.get_text(strip=True)
 
             if href and (name or pic):
                 seen.add(href)
                 videos.append({
                     "vod_id": href,
-                    "vod_name": self._clean_title(name or "MissAV 视频"),
+                    "vod_name": self._clean_title(name or "MissAV 影片"),
                     "vod_pic": self._fix_url(pic),
-                    "vod_remarks": ""
+                    "vod_remarks": remarks
                 })
 
         return {
@@ -318,7 +331,6 @@ class Spider(SpiderBase):
         url = self._fix_url(id)
         html = self._fetch(url)
 
-        # 提取真实播放直链并走本地代理中转
         raw_m3u8 = self._extract_m3u8(html)
         if raw_m3u8:
             enc_target = base64.b64encode(raw_m3u8.encode()).decode()
@@ -344,23 +356,28 @@ class Spider(SpiderBase):
         seen = set()
 
         for item in soup.select("div.thumbnail, div.grid > div"):
-            a_tag = item.find("a", href=True)
-            if not a_tag:
+            title_node = item.select_one("div.my-2 a, div.text-sm a, a.text-secondary")
+            main_a = item.find("a", href=True)
+            
+            href = title_node.get("href") if title_node and title_node.get("href") else (main_a.get("href", "") if main_a else "")
+
+            if not href or href in seen or "javascript:" in href or href == "#":
                 continue
 
-            href = a_tag.get("href", "")
-            if not href or href in seen or "javascript:" in href:
-                continue
-
+            name = title_node.get_text(strip=True) if title_node else ""
             img = item.find("img")
-            name = a_tag.get("alt", "") or (img.get("alt", "") if img else "")
+            if not name and img:
+                name = img.get("alt", "")
+
             pic = (img.get("data-src") or img.get("src", "")) if img else ""
+            if pic.startswith("data:image") and img:
+                pic = img.get("data-src", "")
 
             if href and (name or pic):
                 seen.add(href)
                 videos.append({
                     "vod_id": href,
-                    "vod_name": self._clean_title(name),
+                    "vod_name": self._clean_title(name or "MissAV 影片"),
                     "vod_pic": self._fix_url(pic),
                     "vod_remarks": ""
                 })
@@ -375,8 +392,8 @@ class Spider(SpiderBase):
 if __name__ == "__main__":
     spider = Spider()
     spider.init()
-    print("=== 测试新作上市分类 ===")
+    print("=== 测试新作上市分类列表 ===")
     res = spider.categoryContent("dm635/cn/release", "1", False, {})
-    print(f"获取影片数量: {len(res['list'])}")
+    print(f"成功抓取数量: {len(res['list'])}")
     if res["list"]:
-        print("第一条数据:", json.dumps(res["list"][0], ensure_ascii=False, indent=2))
+        print("前 2 条数据:", json.dumps(res["list"][:2], ensure_ascii=False, indent=2))
