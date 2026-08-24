@@ -4,7 +4,6 @@ import json
 import sys
 import uuid
 import copy
-import re
 
 sys.path.append('..')
 try:
@@ -23,7 +22,7 @@ class Spider(Spider):
     apihost = 'https://pbaccess.video.qq.com'
 
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5410.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         'origin': host,
         'referer': f'{host}/'
     }
@@ -52,9 +51,7 @@ class Spider(Spider):
     def destroy(self):
         pass
 
-    # ───── 辅助网络请求封装 ─────
     def _safe_post_json(self, url, body, headers=None):
-        """安全 POST JSON 请求，带全异常捕获"""
         try:
             rsp = self.post(url, json=body, headers=headers or self.headers)
             if hasattr(rsp, 'json'):
@@ -68,7 +65,6 @@ class Spider(Spider):
             return {}
 
     def _safe_get_html(self, url):
-        """安全拉取 HTML 并转 pq"""
         try:
             rsp = self.fetch(url, headers=self.headers)
             text = getattr(rsp, 'text', str(rsp))
@@ -78,7 +74,6 @@ class Spider(Spider):
         except Exception:
             return pq("<html></html>")
 
-    # ───── TVBox 核心接口 ─────
     def homeContent(self, filter):
         cdata = {
             "电视剧": "100113",
@@ -93,10 +88,7 @@ class Spider(Spider):
         classes = []
         filters = {}
         for k, v in cdata.items():
-            classes.append({
-                'type_name': k,
-                'type_id': v
-            })
+            classes.append({'type_name': k, 'type_id': v})
 
         with ThreadPoolExecutor(max_workers=min(len(classes), 8)) as executor:
             futures = [executor.submit(self.get_filter_data, item['type_id']) for item in classes]
@@ -206,7 +198,6 @@ class Spider(Spider):
             "recommend": extend.get('recommend', '-1')
         }
 
-        # 深度拷贝，防止多线程与并发全局污染
         if pg == '1' or not hasattr(self, 'body') or not self.body:
             req_body = copy.deepcopy(self.dbody)
         else:
@@ -301,7 +292,6 @@ class Spider(Spider):
         pdata = self.process_tabs(data, body, ids)
 
         try:
-            # 演员解析安全兜底
             actors = []
             try:
                 star_list = vdata['data']['module_list_datas'][0]['module_datas'][0]['item_data_lists']['item_datas'][0].get('sub_items', {}).get('star_list', {}).get('item_datas', [])
@@ -309,20 +299,22 @@ class Spider(Spider):
             except (KeyError, IndexError, TypeError):
                 pass
 
-            names = ['腾讯视频', '预告片']
             plist, ylist = self.process_pdata(pdata, ids)
-            
-            # 若正片或预告为空，剔除对应标签
+
             valid_names = []
             valid_urls = []
             if plist:
-                valid_names.append(names[0])
+                valid_names.append('腾讯视频')
                 valid_urls.append('#'.join(plist))
             if ylist:
-                valid_names.append(names[1])
+                valid_names.append('预告片')
                 valid_urls.append('#'.join(ylist))
 
-            # 构建 VOD 对象
+            # 若未提取到正片列表，至少生成一条默认正片供播放嗅探
+            if not valid_names:
+                valid_names.append('腾讯视频')
+                valid_urls.append(f"正片${cid}")
+
             vod = self.build_vod(vdata, actors, valid_urls, valid_names)
             vod['vod_id'] = cid
             return {'list': [vod]}
@@ -384,28 +376,33 @@ class Spider(Spider):
         return {'list': vlist, 'page': int(pg)}
 
     def playerContent(self, flag, id, vipFlags):
-        try:
-            if '@' in id:
-                ids = id.split('@')
-                url = f"{self.host}/x/cover/{ids[0]}/{ids[1]}.html"
-            elif id.startswith("http"):
-                url = id
-            else:
-                url = f"{self.host}/x/cover/{id}.html"
+        """
+        输出标准官网播放地址，委托 TVBox 本地嗅探或内置解析配置处理。
+        """
+        header = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Referer': 'https://v.qq.com/'
+        }
 
-            parse_url = f"https://jx.xmflv.com/?url={url}"
-            return {
-                'parse': 1,
-                'url': parse_url,
-                'header': json.dumps({'User-Agent': self.headers['User-Agent']})
-            }
-        except Exception:
-            return {'parse': 1, 'url': id, 'header': ''}
+        # 还原正确的腾讯播放链接
+        if id.startswith("http"):
+            play_url = id
+        elif '@' in id:
+            cid, vid = id.split('@', 1)
+            play_url = f"https://v.qq.com/x/cover/{cid}/{vid}.html"
+        else:
+            play_url = f"https://v.qq.com/x/cover/{id}.html"
+
+        # parse: 1 交由聚合客户端解析接口
+        return {
+            'parse': 1,
+            'url': play_url,
+            'header': json.dumps(header)
+        }
 
     def localProxy(self, param):
         return [404, "text/plain", ""]
 
-    # ───── 内部解析子组件 ─────
     def get_filter_data(self, cid):
         hbody = copy.deepcopy(self.dbody)
         hbody['page_params']['channel_id'] = cid
@@ -417,24 +414,42 @@ class Spider(Spider):
         try:
             api_url = f'{self.apihost}/trpc.universal_backend_service.page_server_rpc.PageServer/GetPageData?video_appid=3000010&vplatform=2&vversion_name=8.2.96'
             return self._safe_post_json(api_url, body)
-        except Exception as e:
+        except Exception:
             return {'data': {'module_list_datas': []}}
 
     def process_pdata(self, pdata, ids):
         plist = []
         ylist = []
+        seen = set()
+
         for k in pdata:
             if not isinstance(k, dict):
                 continue
-            item_id = k.get('item_id')
+            item_id = k.get('item_id') or k.get('id')
             params = k.get('item_params', {})
-            title = params.get('union_title') or params.get('title') or '第1集'
-            if item_id:
-                pid = f"{title}${ids[0]}@{item_id}"
-                if '预告' in title:
-                    ylist.append(pid)
-                else:
-                    plist.append(pid)
+            vid = params.get('vid') or item_id
+
+            if not vid or vid in seen:
+                continue
+            seen.add(vid)
+
+            title = params.get('union_title') or params.get('title') or f"第{len(plist) + 1}集"
+            play_key = f"{ids[0]}@{vid}"
+            entry = f"{title}${play_key}"
+
+            # 区分预告片/花絮与正片
+            is_trailer = (
+                '预告' in title or 
+                '花絮' in title or 
+                params.get('is_trailer') == '1' or 
+                params.get('video_type') in ['2', '3']
+            )
+
+            if is_trailer:
+                ylist.append(entry)
+            else:
+                plist.append(entry)
+
         return plist, ylist
 
     def build_vod(self, vdata, actors, valid_urls, valid_names):
@@ -451,8 +466,8 @@ class Spider(Spider):
             'vod_remarks': d.get('holly_online_time', '') or d.get('hotval', ''),
             'vod_actor': ','.join(filter(None, actors)),
             'vod_content': d.get('cover_description', ''),
-            'vod_play_from': '$$$'.join(valid_names) if valid_names else '默认源',
-            'vod_play_url': '$$$'.join(valid_urls) if valid_urls else '正片$1'
+            'vod_play_from': '$$$'.join(valid_names) if valid_names else '腾讯视频',
+            'vod_play_url': '$$$'.join(valid_urls) if valid_urls else ''
         }
 
     def handle_exception(self, e, message):
@@ -463,10 +478,19 @@ class Spider(Spider):
             module_list = data.get('data', {}).get('module_list_datas', [])
             if not module_list:
                 return []
-            
-            pdata = module_list[-1]['module_datas'][-1]['item_data_lists']['item_datas']
-            tabs_raw = module_list[-1]['module_datas'][-1].get('module_params', {}).get('tabs')
-            
+
+            pdata = []
+            try:
+                pdata = module_list[-1]['module_datas'][-1]['item_data_lists']['item_datas']
+            except (KeyError, IndexError, TypeError):
+                pdata = []
+
+            tabs_raw = None
+            try:
+                tabs_raw = module_list[-1]['module_datas'][-1].get('module_params', {}).get('tabs')
+            except (KeyError, IndexError, TypeError):
+                pass
+
             if tabs_raw:
                 tabs = json.loads(tabs_raw) if isinstance(tabs_raw, str) else tabs_raw
                 if isinstance(tabs, list) and len(tabs) > 1:
