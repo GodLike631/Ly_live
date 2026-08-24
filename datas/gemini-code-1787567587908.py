@@ -377,14 +377,11 @@ class Spider(Spider):
 
     def playerContent(self, flag, id, vipFlags):
         """
-        输出标准官网播放地址，委托 TVBox 本地嗅探或内置解析配置处理。
+        修复只播15秒广告/试看问题：
+        1. 补全标准官方播放页 URL
+        2. 接入支持跳过广告与解出 VIP 正片的解析链
+        3. 增加兜底 headers 伪装
         """
-        header = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'Referer': 'https://v.qq.com/'
-        }
-
-        # 还原正确的腾讯播放链接
         if id.startswith("http"):
             play_url = id
         elif '@' in id:
@@ -393,11 +390,28 @@ class Spider(Spider):
         else:
             play_url = f"https://v.qq.com/x/cover/{id}.html"
 
-        # parse: 1 交由聚合客户端解析接口
+        # 头部伪装（防盗链/防空壳）
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Referer': 'https://v.qq.com/'
+        }
+
+        # 方案 A：直接输出官方播放页交给客户端主力解析接口（适用于 TVBox 配置了完整 parses 规则源）
+        # return {
+        #     'parse': 1,
+        #     'url': play_url,
+        #     'header': json.dumps(headers)
+        # }
+
+        # 方案 B（推荐）：直连稳定支持免广告解析接口（parse 设为 1，交由播放器加载解析页面嗅探正片）
+        jx_api = "https://jx.jsonplayer.com/player/?url="
+        # 备用稳定接口：https://jx.aidouer.net/?url= 或 https://jx.m3u8.tv/jiexi/?url=
+        
         return {
             'parse': 1,
-            'url': play_url,
-            'header': json.dumps(header)
+            'url': f"{jx_api}{play_url}",
+            'header': json.dumps(headers),
+            'jx': 1
         }
 
     def localProxy(self, param):
