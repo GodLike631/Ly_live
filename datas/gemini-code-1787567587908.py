@@ -51,6 +51,7 @@ class Spider(Spider):
     def destroy(self):
         pass
 
+    # ───── 网络请求封装 ─────
     def _safe_post_json(self, url, body, headers=None):
         try:
             rsp = self.post(url, json=body, headers=headers or self.headers)
@@ -74,6 +75,7 @@ class Spider(Spider):
         except Exception:
             return pq("<html></html>")
 
+    # ───── 首页与分类 ─────
     def homeContent(self, filter):
         cdata = {
             "电视剧": "100113",
@@ -249,6 +251,7 @@ class Spider(Spider):
         result['total'] = 999999 if ndata.get('has_next_page') else len(vlist)
         return result
 
+    # ───── 详情页处理 ─────
     def detailContent(self, ids):
         if not ids or not ids[0]:
             return {'list': []}
@@ -310,7 +313,6 @@ class Spider(Spider):
                 valid_names.append('预告片')
                 valid_urls.append('#'.join(ylist))
 
-            # 若未提取到正片列表，至少生成一条默认正片供播放嗅探
             if not valid_names:
                 valid_names.append('腾讯视频')
                 valid_urls.append(f"正片${cid}")
@@ -321,6 +323,7 @@ class Spider(Spider):
         except Exception as e:
             return self.handle_exception(e, "Error processing detail")
 
+    # ───── 搜索 ─────
     def searchContent(self, key, quick, pg="1"):
         body = {
             "version": "24072901",
@@ -375,13 +378,14 @@ class Spider(Spider):
 
         return {'list': vlist, 'page': int(pg)}
 
+    # ───── 播放解析（修复 15 秒广告/试看拦截） ─────
     def playerContent(self, flag, id, vipFlags):
-        """
-        修复只播15秒广告/试看问题：
-        1. 补全标准官方播放页 URL
-        2. 接入支持跳过广告与解出 VIP 正片的解析链
-        3. 增加兜底 headers 伪装
-        """
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Referer': 'https://v.qq.com/'
+        }
+
+        # 还原官方完整播放 URL
         if id.startswith("http"):
             play_url = id
         elif '@' in id:
@@ -390,22 +394,8 @@ class Spider(Spider):
         else:
             play_url = f"https://v.qq.com/x/cover/{id}.html"
 
-        # 头部伪装（防盗链/防空壳）
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'Referer': 'https://v.qq.com/'
-        }
-
-        # 方案 A：直接输出官方播放页交给客户端主力解析接口（适用于 TVBox 配置了完整 parses 规则源）
-        # return {
-        #     'parse': 1,
-        #     'url': play_url,
-        #     'header': json.dumps(headers)
-        # }
-
-        # 方案 B（推荐）：直连稳定支持免广告解析接口（parse 设为 1，交由播放器加载解析页面嗅探正片）
+        # 接入支持去广告与 VIP 正片嗅探的解析接口，开启 jx=1
         jx_api = "https://jx.jsonplayer.com/player/?url="
-        # 备用稳定接口：https://jx.aidouer.net/?url= 或 https://jx.m3u8.tv/jiexi/?url=
         
         return {
             'parse': 1,
@@ -417,6 +407,7 @@ class Spider(Spider):
     def localProxy(self, param):
         return [404, "text/plain", ""]
 
+    # ───── 内部组件 ─────
     def get_filter_data(self, cid):
         hbody = copy.deepcopy(self.dbody)
         hbody['page_params']['channel_id'] = cid
@@ -451,7 +442,6 @@ class Spider(Spider):
             play_key = f"{ids[0]}@{vid}"
             entry = f"{title}${play_key}"
 
-            # 区分预告片/花絮与正片
             is_trailer = (
                 '预告' in title or 
                 '花絮' in title or 
