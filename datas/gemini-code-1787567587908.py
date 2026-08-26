@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-OnlyTarts (onlytarts.com) Python Spider
-兼容 FongMi/TV (T3) 与 WebHomeTV / PeekPro (T4)
+OnlyTarts (onlytarts.com) Python Spider - 完整正片修复版
+- 优先嗅探与提取 HLS m3u8 / 真实完整长视频直链
+- 彻底过滤 60s sample / preview / trailer 截断流
+- 兼容 FongMi(T3) / TVBox(T4) 播放器协议
 """
 import sys
 import re
@@ -35,7 +37,7 @@ class Spider(Spider):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
                           '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
             'Referer': self.host + '/',
         }
         self._play_cache = {}
@@ -174,71 +176,89 @@ class Spider(Spider):
             'vod_remarks': duration,
             'vod_tags': tag_str,
             'vod_play_from': 'OnlyTarts',
-            'vod_play_url': '正片$' + slug,
+            'vod_play_url': '完整正片$' + slug,
         }
 
         return {'list': [vod]}
+
+    def _is_short_preview(self, url, title=""):
+        """精准检测是否为试看/悬停预览切片"""
+        combined = f"{url} {title}".lower()
+        banned = ['preview', 'trailer', 'sample', '_60s', 'short', 'thumb', 'promo']
+        return any(b in combined for b in banned)
 
     def _extract_play_url(self, html, slug):
         if slug in self._play_cache:
             return self._play_cache[slug]
 
-        mp4_url = ''
+        play_url = ''
 
-        # 1. 从 window.initials 提取完整列表
-        m = re.search(r'window\.initials\s*=\s*(\{.*?\});', html, re.DOTALL)
-        if m:
-            try:
-                data = json.loads(m.group(1))
-                video_info = data.get('video', {})
-                sources = video_info.get('sources', [])
-                
-                # 过滤掉 preview / trailer 切片
-                valid_sources = []
-                for src in sources:
-                    u = src.get('url', '')
-                    t = str(src.get('title', '')).lower()
-                    if u and 'preview' not in u.lower() and 'trailer' not in t and 'preview' not in t:
-                        valid_sources.append(src)
-                
-                if not valid_sources and sources:
-                    valid_sources = sources
+        # 1. 优先提取 HLS / M3U8 完整视频流（正片多为 HLS 分发）
+        hls_matches = re.findall(r'(https?://[^\s"\'<>]+\.m3u8[^\s"\'<>]*)', html)
+        for h_url in hls_matches:
+            if not self._is_short_preview(h_url):
+                play_url = h_url
+                break
 
-                # 按清晰度从高到低排序，优先找 720p / 1080p，排除超短片段
-                for target in ['1080', '720', '480', '360']:
-                    for src in valid_sources:
-                        if target in str(src.get('title', '')):
-                            mp4_url = src.get('url', '')
-                            break
-                    if mp4_url:
-                        break
+        # 2. 从 window.initials 结构化数据深入提取
+        if not play_url:
+            m = re.search(r'window\.initials\s*=\s*(\{.*?\});', html, re.DOTALL)
+            if m:
+                try:
+                    data = json.loads(m.group(1))
+                    video_info = data.get('video', {})
+                    
+                    # 检查是否有 hls_url / stream_url
+                    if video_info.get('hls_url'):
+                        play_url = video_info['hls_url']
+                    elif video_info.get('stream_url'):
+                        play_url = video_info['stream_url']
 
-                if not mp4_url and valid_sources:
-                    mp4_url = valid_sources[0].get('url', '')
+                    # 检查 sources 列表
+                    if not play_url:
+                        sources = video_info.get('sources', [])
+                        valid_sources = []
+                        for src in sources:
+                            u = src.get('url', '')
+                            t = str(src.get('title', ''))
+                            if u and not self._is_short_preview(u, t):
+                                valid_sources.append((t, u))
 
-            except Exception:
-                pass
+                        # 优先取高分辨率的正片
+                        for target in ['1080', '720', '480', '360', 'default']:
+                            for t, u in valid_sources:
+                                if target in t.lower():
+                                    play_url = u
+                                    break
+                            if play_url:
+                                break
 
-        # 2. 从 HTML 直接匹配完整的 video source
-        if not mp4_url:
-            sources_html = re.findall(r'<source[^>]+src="([^"]+\.mp4[^"]*)"[^>]*>', html)
+                        if not play_url and valid_sources:
+                            play_url = valid_sources[0][1]
+
+                except Exception:
+                    pass
+
+        # 3. 从 video / source 标签提取完整的 MP4 直链
+        if not play_url:
+            sources_html = re.findall(r'<source[^>]+src="([^"]+)"[^>]*>', html)
             for src_url in sources_html:
-                if 'preview' not in src_url.lower():
-                    mp4_url = src_url
+                if not self._is_short_preview(src_url):
+                    play_url = src_url
                     break
 
-        # 3. 兜底匹配 xhcdn 直链
-        if not mp4_url:
+        # 4. 兜底匹配 xhcdn 直链
+        if not play_url:
             all_mp4s = re.findall(r'(https://[a-zA-Z0-9\.]+\.xhcdn\.com/[^"\']+\.mp4[^"\']*)', html)
             for u in all_mp4s:
-                if 'preview' not in u.lower():
-                    mp4_url = u
+                if not self._is_short_preview(u):
+                    play_url = u
                     break
 
-        if mp4_url:
-            self._play_cache[slug] = mp4_url
+        if play_url:
+            self._play_cache[slug] = play_url
 
-        return mp4_url
+        return play_url
 
     def playerContent(self, flag, id, vipFlags):
         if not id:
@@ -248,26 +268,34 @@ class Spider(Spider):
             id = id.split('$')[-1]
 
         slug = str(id)
-        mp4_url = self._play_cache.get(slug)
+        play_url = self._play_cache.get(slug)
 
-        if not mp4_url:
+        if not play_url:
             url = f'{self.host}/video/{slug}'
             html = self._fetch_html(url)
-            mp4_url = self._extract_play_url(html, slug)
+            play_url = self._extract_play_url(html, slug)
 
-        if not mp4_url:
-            return {'parse': 1, 'playUrl': '', 'url': ''}
+        if not play_url:
+            # 兜底走 WebView 嗅探，避免彻底无法播放
+            return {
+                'parse': 1,
+                'url': f'{self.host}/video/{slug}',
+                'header': f"User-Agent={self.header['User-Agent']}&Referer={self.host}/"
+            }
 
-        # 传递标准播放 Header，防防盗链中途掐断
+        # 构造双向兼容的 Header 格式
+        headers_dict = {
+            'User-Agent': self.header['User-Agent'],
+            'Referer': f'{self.host}/video/{slug}',
+            'Origin': self.host,
+        }
+
+        # 判断是 M3U8 还是 MP4
         return {
             'parse': 0,
             'playUrl': '',
-            'url': mp4_url,
-            'header': {
-                'User-Agent': self.header['User-Agent'],
-                'Referer': f'{self.host}/video/{slug}',
-                'Origin': self.host,
-            },
+            'url': play_url,
+            'header': headers_dict,
         }
 
     def searchContent(self, key, quick, pg):
