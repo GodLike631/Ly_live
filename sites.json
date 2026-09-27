@@ -4,7 +4,7 @@
             "name": "高考模拟点播",
             "type": 3,
             "api": "csp_gaokao",
-            "ext": "https://你的域名/gaokao.js"
+            "ext": "https://raw.githubusercontent.com/GodLike631/Ly_live/refs/heads/main/gaokao.js"
         }
     ]
 }
